@@ -327,7 +327,7 @@ document.getElementById('formNewChamado')?.addEventListener('submit', async (e) 
     validationErrors.push('Descrição do chamado deve ter entre 10 e 2000 caracteres');
   }
   if (category && !validateLength(category, 1, 100)) {
-    validationErrors.push('Categoria do chamado deve ter no máximo 100 caracteres');
+    validationErrors.push('Departamento do chamado deve ter no máximo 100 caracteres');
   }
   if (!['baixa', 'normal', 'alta', 'urgente'].includes(priority)) {
     validationErrors.push('Selecione uma prioridade válida');
@@ -468,7 +468,7 @@ async function showChamadoDetails(chamadoId) {
       <p><strong>ID:</strong> #${chamado.id}</p>
       <p><strong>Título:</strong> ${chamado.title}</p>
       <p><strong>Descrição:</strong> ${chamado.description}</p>
-      <p><strong>Categoria:</strong> ${chamado.category || '-'}</p>
+      <p><strong>Departamento:</strong> ${chamado.category || '-'}</p>
       <p><strong>Prioridade:</strong> <span class="priority-badge ${chamado.priority}">${chamado.priority}</span></p>
       <p><strong>Status:</strong> <span class="status-badge ${chamado.status}">${chamado.status}</span></p>
       <p><strong>Data de Criação:</strong> ${new Date(chamado.created_at).toLocaleDateString('pt-BR')}</p>

@@ -1,8 +1,4 @@
-# 🚀 INÍCIO RÁPIDO - Sistema de Intranet
-
-## ⏱️ Resumo em 3 Minutos
-
-Você tem um **sistema completo de Intranet corporativo** pronto para usar!
+# Sistema de Intranet LI
 
 ### Arquivos Criados: 20+
 - Backend Node.js/Express ✅
@@ -13,8 +9,6 @@ Você tem um **sistema completo de Intranet corporativo** pronto para usar!
 - Documentação completa ✅
 
 ---
-
-## 🎯 O que você tem agora
 
 ✅ **Login/Registro** com autenticação segura
 ✅ **Dashboard** com estatísticas em tempo real
@@ -27,7 +21,7 @@ Você tem um **sistema completo de Intranet corporativo** pronto para usar!
 
 ---
 
-## 📁 Estrutura Criada
+## Estrutura Criada
 
 ```
 Intranet/
@@ -60,9 +54,9 @@ Intranet/
 
 ---
 
-## ⚡ Como Começar (30 minutos)
+## Como Começar (30 minutos)
 
-### 1️⃣ Banco de Dados (2 min)
+### Banco de Dados (2 min)
 
 ```bash
 mysql -u root -p < database/schema.sql
@@ -74,7 +68,7 @@ Ou copie o conteúdo do arquivo `database/schema.sql` no MySQL Workbench e execu
 - **Usuário:** admin
 - **Senha:** admin123
 
-### 2️⃣ Backend (8 min)
+### Backend (8 min)
 
 ```bash
 cd backend
@@ -86,7 +80,7 @@ Aguarde mensagem: "Servidor rodando na porta 5000"
 
 **Mantenha este terminal aberto!**
 
-### 3️⃣ Frontend (5 min)
+### 3️Frontend (5 min)
 
 Novo terminal na pasta `frontend`:
 
@@ -99,7 +93,7 @@ Ou se usar Node.js:
 npx http-server -p 8000
 ```
 
-### 4️⃣ Acessar (1 min)
+### Acessar (1 min)
 
 ```
 http://localhost:8000
@@ -111,7 +105,7 @@ http://localhost:8000
 
 ---
 
-## 🎮 Testar Funcionalidades
+## Testar Funcionalidades
 
 ### Login
 1. Acesse http://localhost:8000
@@ -139,7 +133,7 @@ http://localhost:8000
 
 ---
 
-## 📚 Documentação
+## Documentação
 
 | Arquivo | Conteúdo |
 |---------|----------|
@@ -152,7 +146,7 @@ http://localhost:8000
 
 ---
 
-## 🔧 Principais Arquivo do Código
+## Principais Arquivo do Código
 
 ### Backend
 - **server.js** - Servidor principal
@@ -174,7 +168,7 @@ http://localhost:8000
 
 ---
 
-## 🌐 Endpoints da API
+## Endpoints da API
 
 ```
 POST   /api/auth/register
@@ -198,7 +192,7 @@ DELETE /api/documentos/:id
 
 ---
 
-## 🔒 Segurança Implementada
+## Segurança Implementada
 
 ✅ Hash de senhas com bcrypt
 ✅ Autenticação JWT (expira em 7 dias)
@@ -208,8 +202,6 @@ DELETE /api/documentos/:id
 ✅ Validação de tipo de arquivo
 
 ---
-
-## 🐛 Se algo não funcionar...
 
 ### "Cannot connect to database"
 ```bash
@@ -241,7 +233,7 @@ localStorage.clear()
 
 ---
 
-## 📊 Estatísticas
+## Estatísticas
 
 - **Arquivos Criados**: 20+
 - **Linhas de Código**: 3000+
@@ -253,18 +245,18 @@ localStorage.clear()
 
 ---
 
-## 🎓 Próximos Passos
+## Próximos Passos
 
-1. ✅ Instale conforme passo a passo acima
-2. 📖 Leia INSTALACAO_RAPIDA.md para mais detalhes
-3. 🧪 Teste todas as funcionalidades
-4. 🎨 Customize cores/logos conforme necessário
-5. 👥 Crie mais usuários
-6. 🚀 Deploy em servidor real (AWS, Azure, DigitalOcean, etc)
+1. Instale conforme passo a passo acima
+2. Leia INSTALACAO_RAPIDA.md para mais detalhes
+3. Teste todas as funcionalidades
+4. Customize cores/logos conforme necessário
+5. Crie mais usuários
+6. Deploy em servidor real (AWS, Azure, DigitalOcean, etc)
 
 ---
 
-## 💡 Dicas Importantes
+## Dicas Importantes
 
 - ✅ Mantenha backend rodando enquanto usa
 - ✅ Use DevTools (F12) para debug
@@ -277,7 +269,7 @@ localStorage.clear()
 
 ---
 
-## 📱 Funciona em
+## Multiplataforma
 
 ✅ Windows
 ✅ Mac
@@ -286,8 +278,6 @@ localStorage.clear()
 ✅ Mobile browsers (responsivo)
 
 ---
-
-## ❓ Perguntas Frequentes
 
 **P: Posso alterar as cores?**
 ✅ Sim, edite `frontend/css/style.css`
@@ -306,19 +296,7 @@ localStorage.clear()
 
 ---
 
-## 🎉 Você está pronto!
-
-Seu sistema de Intranet está:
-- ✅ Totalmente funcional
-- ✅ Bem documentado
-- ✅ Pronto para uso
-- ✅ Fácil de customizar
-- ✅ Escalável para produção
-
-**Bom uso do sistema! 🚀**
-
----
-
 **Próximo passo:** Execute `npm start` no backend e `python -m http.server 8000` no frontend, depois acesse `http://localhost:8000`
 
-**Dúvida?** Consulte README.md ou INSTALACAO_RAPIDA.md
+
+**Sistema Desenvolvido por Nelson Junior com IA Assistida**

@@ -1,6 +1,6 @@
 # ✅ Checklist de Configuração Inicial
 
-## 🚀 Pré-Instalação (Antes de Começar)
+## Pré-Instalação (Antes de Começar)
 
 - [ ] Node.js v14+ instalado (`node --version`)
 - [ ] npm instalado (`npm --version`)
@@ -9,7 +9,7 @@
 - [ ] Editor de código (VS Code recomendado)
 - [ ] Navegador moderno (Chrome, Firefox, Safari, Edge)
 
-## 📦 Instalação do Backend
+## Instalação do Backend
 
 ### Passo 1: Verificar Dependências
 - [ ] Abra terminal/PowerShell na pasta `backend`
@@ -45,7 +45,7 @@
 - [ ] Aguarde "Conectado ao banco de dados MySQL"
 - [ ] Mantenha este terminal aberto!
 
-## 🗄️ Banco de Dados
+## Banco de Dados
 
 ### Passo 1: Abrir MySQL
 - [ ] Abra MySQL Workbench, ou
@@ -85,7 +85,7 @@
 - [ ] Execute: `SELECT * FROM users;`
 - [ ] Verifique se aparece usuário 'admin'
 
-## 🌐 Frontend
+## Frontend
 
 ### Passo 1: Servir Arquivos
 
@@ -112,7 +112,7 @@
 - [ ] Verifique se aparece página de login
 - [ ] Verifique se carrega CSS e estilos
 
-## 🧪 Testes Funcionais
+## Testes Funcionais
 
 ### Teste 1: Login - Admin Padrão
 - [ ] Abra navegador em `http://localhost:8000`
@@ -179,7 +179,7 @@
 - [ ] Verifique se redireciona para login
 - [ ] Verifique se localStorage foi limpo (F12 → Application)
 
-## 🐛 Debug e Verificação
+## Debug e Verificação
 
 ### Verificar Backend Rodando
 - [ ] Abra terminal/PowerShell
@@ -206,7 +206,7 @@
 - [ ] Procure por status verde (200, 201, 204)
 - [ ] Se ver vermelho (400, 401, 500), clique na requisição para ver erro
 
-## 🔧 Configurações Avançadas (Opcional)
+## Configurações Avançadas (Opcional)
 
 ### Mudar Porta do Backend
 - [ ] Edite `backend/.env`
@@ -224,7 +224,7 @@
 - [ ] Configure em servidor Node.js
 - [ ] Atualize CORS_ORIGIN nas variáveis
 
-## 📋 Checklist Final
+## Checklist Final
 
 - [ ] Node.js e npm instalados
 - [ ] MySQL rodando
@@ -243,10 +243,6 @@
 - [ ] Não há erros vermelhos no console (F12)
 - [ ] Não há erros no terminal do backend
 
-## 🎉 Se tudo deu certo...
-
-Parabéns! Seu sistema de Intranet está 100% funcional! 🚀
-
 ### Próximos passos:
 1. Explore todas as funcionalidades
 2. Customize cores e cores conforme necessário
@@ -255,7 +251,7 @@ Parabéns! Seu sistema de Intranet está 100% funcional! 🚀
 5. Faça backup do banco de dados
 6. Configure em um servidor real para produção
 
-## 📞 Troubleshooting Rápido
+## Troubleshooting Rápido
 
 | Problema | Solução |
 |----------|---------|
@@ -268,4 +264,4 @@ Parabéns! Seu sistema de Intranet está 100% funcional! 🚀
 
 ---
 
-**Boa sorte com seu sistema de Intranet! 💪**
+**Sistema Desenvolvido por Nelson Junior com IA Assistida**

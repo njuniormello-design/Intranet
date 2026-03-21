@@ -1,6 +1,6 @@
 # Intranet System - Guia Rápido de Instalação
 
-## ⚡ Instalação Rápida (30 minutos)
+## Instalação Rápida (30 minutos)
 
 ### Passo 1: Preparar o MySQL (2 min)
 
@@ -85,7 +85,7 @@ Ou registre uma nova conta via "Registre-se aqui"
 
 ---
 
-## 🧪 Testando Funcionalidades
+## Testando Funcionalidades
 
 ### Login ✅
 - [ ] Faça login com admin/admin123
@@ -123,9 +123,9 @@ Ou registre uma nova conta via "Registre-se aqui"
 
 ---
 
-## 🛠️ Problemas Comuns
+## Problemas Comuns
 
-### ❌ "Cannot connect to database"
+### "Cannot connect to database"
 
 **Solução:**
 1. Verifique se MySQL está rodando
@@ -135,7 +135,7 @@ Ou registre uma nova conta via "Registre-se aqui"
 2. Confirme as credenciais em `backend/.env`
 3. Verifique se criou o banco com: `mysql -u root -p < database/schema.sql`
 
-### ❌ "Port 8000 already in use"
+### "Port 8000 already in use"
 
 **Solução:**
 ```bash
@@ -144,19 +144,19 @@ python -m http.server 9000  # ou qualquer porta disponível
 # Acesse: http://localhost:9000
 ```
 
-### ❌ "CORS error" ao tentar enviar dados
+### "CORS error" ao tentar enviar dados
 
 **Solução:**
 - Verifique se o backend está rodando (`npm start` na pasta backend)
 - Verifique se está rodando na porta 5000
 - Abra em terminal novo e tente novamente
 
-### ❌ "npm: command not found"
+### "npm: command not found"
 
 **Solução:**
 - Instale Node.js em https://nodejs.org/
 
-### ❌ Não consigo fazer upload de arquivo
+### Não consigo fazer upload de arquivo
 
 **Solução:**
 1. Crie as pastas manualmente:
@@ -171,7 +171,7 @@ mkdir uploads/documentos
 
 ---
 
-## 📱 Estrutura de Pastas Esperada
+## Estrutura de Pastas Esperada
 
 ```
 Intranet/
@@ -201,9 +201,9 @@ Intranet/
 
 ---
 
-## 🔐 Segurança
+## Segurança
 
-⚠️ **IMPORTANTE PARA PRODUÇÃO:**
+**IMPORTANTE PARA PRODUÇÃO:**
 
 1. Mude o `JWT_SECRET` em `backend/.env`
 2. Crie senhas fortes para os usuários
@@ -213,7 +213,7 @@ Intranet/
 
 ---
 
-## 📞 Próximas Etapas
+## Próximas Etapas
 
 Depois de instalar com sucesso:
 
@@ -225,7 +225,7 @@ Depois de instalar com sucesso:
 
 ---
 
-## 📚 Documentação Completa
+## Documentação Completa
 
 Veja [README.md](README.md) para informações sobre:
 - Endpoints da API
@@ -235,6 +235,6 @@ Veja [README.md](README.md) para informações sobre:
 
 ---
 
-**Sucesso na instalação! 🎉**
-
 Se tiver dúvidas, consulte a documentação ou entre em contato com o desenvolvedor.
+
+**Sistema Desenvolvido por Nelson Junior com IA Assistida**

@@ -1,4 +1,4 @@
-# Sistema de Intranet
+# Sistema de Intranet Londrina Iluminação
 
 Um sistema web corporativo completo com funcionalidades de login, gestão de chamados, comunicados e repositório de documentos.
 
@@ -245,3 +245,5 @@ Para dúvidas ou problemas, consulte a documentação dos projetos utilizados:
 ## Licença
 
 MIT License - Sinta-se livre para usar este projeto como base para seus sistemas.
+
+**Sistema Desenvolvido por Nelson Junior com IA Assistida**

@@ -388,4 +388,4 @@ Intranet/
 
 ---
 
-**Todos esses diagramas ilustram a arquitetura completa do sistema de Intranet!**
+**Sistema Desenvolvido por Nelson Junior com IA Assistida**
