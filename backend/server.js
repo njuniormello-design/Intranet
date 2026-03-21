@@ -6,6 +6,7 @@ const path = require('path');
 dotenv.config();
 
 const app = express();
+const frontendPath = path.join(__dirname, '..', 'frontend');
 
 // Middleware
 app.use(cors({
@@ -42,6 +43,12 @@ app.use('/api/comunicados', comunicadosRoutes);
 app.use('/api/documentos', documentosRoutes);
 app.use('/api/funcionarios', funcionariosRoutes);
 app.use('/api/usuarios', usuariosRoutes);
+
+// Servir o frontend pelo mesmo servidor, sem impedir o uso do frontend separado
+app.use(express.static(frontendPath));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
 
 // Rota de teste
 app.get('/api/test', (req, res) => {
