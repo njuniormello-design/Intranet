@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intranet LI- Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container-main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Intranet LI</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-link active" onclick="loadPage('dashboard', event)">
+          <span class="icon">📊</span> Dashboard
+        </a>
+        <a href="#" class="nav-link" onclick="loadPage('chamados', event)">
+          <span class="icon">🎫</span> Chamados
+        </a>
+        <a href="#" class="nav-link" onclick="loadPage('comunicados', event)">
+          <span class="icon">📢</span> Comunicados
+        </a>
+        <a href="#" class="nav-link" onclick="loadPage('documentos', event)">
+          <span class="icon">📁</span> Documentos
+        </a>
+        <a href="#" class="nav-link" onclick="loadPage('funcionarios', event)">
+          <span class="icon">👥</span> Funcionários
+        </a>
+        <a href="#" class="nav-link" id="navUsuarios" onclick="loadPage('usuarios', event)">
+          <span class="icon">👤</span> Usuários
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <button onclick="logout()" class="btn btn-danger btn-block">Sair</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <h1 id="pageTitle">Dashboard</h1>
+        </div>
+        <div class="header-right">
+          <div class="user-info">
+            <span style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1;">
+              <span id="userName">Usuário</span>
+              <small id="userRole" style="color: #64748b;">Visualizador</small>
+            </span>
+            <img src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
+          </div>
+        </div>
+      </header>
+
+      <!-- Content Area -->
+      <div class="content-area" id="contentArea">
+        <!-- Dashboard -->
+        <div id="dashboard" class="page-content">
+          <div class="dashboard-grid">
+            <div class="dashboard-card">
+              <h3>Chamados Abertos</h3>
+              <div class="card-number" id="openTickets">0</div>
+              <p class="card-label">Aguardando atendimento</p>
+            </div>
+            <div class="dashboard-card">
+              <h3>Comunicados</h3>
+              <div class="card-number" id="totalAnnouncements">0</div>
+              <p class="card-label">Últimos comunicados</p>
+            </div>
+            <div class="dashboard-card">
+              <h3>Documentos</h3>
+              <div class="card-number" id="totalDocuments">0</div>
+              <p class="card-label">Disponíveis no repositório</p>
+            </div>
+            <div class="dashboard-card">
+              <h3>Meus Chamados</h3>
+              <div class="card-number" id="myTickets">0</div>
+              <p class="card-label">Solicitações enviadas</p>
+            </div>
+          </div>
+
+          <div style="margin-top: 30px;">
+            <h2>Últimos Comunicados</h2>
+            <div id="recentAnnouncements" class="announcements-list">
+              <!-- Comunicados serão carregados aqui -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Chamados -->
+        <div id="chamados" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Gerenciamento de Chamados</h2>
+            <button onclick="showNewChamadoForm()" class="btn btn-primary">+ Novo Chamado</button>
+          </div>
+
+          <div id="newChamadoForm" class="form-section" style="display: none;">
+            <h3>Criar Novo Chamado</h3>
+            <form id="formNewChamado">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="chamadoTitle">Título:</label>
+                    <input type="text" id="chamadoTitle" name="title" minlength="3" maxlength="120" required>
+                </div>
+                <div class="form-group">
+                  <label for="chamadoCategory">Categoria:</label>
+                  <select id="chamadoCategory" name="category">
+                    <option value="">Selecione...</option>
+                    <option value="TI">TI</option>
+                    <option value="RH">RH</option>
+                    <option value="Financeiro">Financeiro</option>
+                    <option value="Operacional">Operacional</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="chamadoDescription">Descrição:</label>
+                    <textarea id="chamadoDescription" name="description" rows="5" minlength="10" maxlength="2000" required></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="chamadoPriority">Prioridade:</label>
+                  <select id="chamadoPriority" name="priority">
+                    <option value="baixa">Baixa</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="alta">Alta</option>
+                    <option value="urgente">Urgente</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="chamadoAttachments">Anexar Imagens:</label>
+                  <input type="file" id="chamadoAttachments" name="attachments" multiple accept="image/*,.pdf">
+                  <small>Máx. 5 arquivos, até 5MB cada</small>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <button type="button" onclick="hideChamadoForm()" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Enviar Chamado</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-section">
+            <h3>Meus Chamados</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Usuário</th>
+                  <th>Título</th>
+                  <th>Categoria</th>
+                  <th>Prioridade</th>
+                  <th>Status</th>
+                  <th>Data</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="chamadosTableBody">
+                <!-- Chamados serão carregados aqui -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Comunicados -->
+        <div id="comunicados" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Comunicados</h2>
+            <button id="btnNovoComunicado" onclick="showNewComunicadoForm()" class="btn btn-primary">+ Novo Comunicado</button>
+          </div>
+
+          <div class="communicados-layout">
+            <div id="newComunicadoForm" class="form-section comunicado-form-card" style="display: none;">
+              <h3>Criar Comunicado</h3>
+              <form id="formNewComunicado">
+                <div class="form-group">
+                  <label for="comunicadoTitle">Título:</label>
+            <input type="text" id="comunicadoTitle" name="title" minlength="3" maxlength="80" placeholder="Ex.: Atualização do expediente" required>
+                </div>
+                <div class="form-group">
+                  <label for="comunicadoContent">Texto do comunicado:</label>
+                  <textarea id="comunicadoContent" name="content" class="comunicado-textarea" minlength="1" maxlength="500" rows="8" placeholder="Escreva o comunicado aqui..." required></textarea>
+                  <div class="char-counter">
+                    <span>Máximo de 500 caracteres</span>
+                    <strong><span id="comunicadoCharCount">0</span>/500</strong>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="comunicadoPriority">Prioridade:</label>
+                  <select id="comunicadoPriority" name="priority">
+                    <option value="normal" selected>Normal</option>
+                    <option value="alta">Alta</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Pré-visualização:</label>
+                  <div class="comunicado-preview">
+                    <span class="preview-label">Como vai aparecer</span>
+                    <div class="preview-title" id="comunicadoPreviewTitle">Título do comunicado</div>
+                    <div class="preview-text" id="comunicadoPreviewText">O texto do comunicado aparece aqui.</div>
+                  </div>
+                </div>
+                <div style="text-align: right; margin-top: 10px;">
+                  <button type="button" onclick="hideComunicadoForm()" class="btn btn-secondary">Cancelar</button>
+                  <button type="submit" class="btn btn-primary">Publicar</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="comunicado-list-card">
+              <div id="comunicadosList" class="announcements-list">
+                <!-- Comunicados serão carregados aqui -->
+              </div>
+            </div>
+            <!-- Comunicados serão carregados aqui -->
+          </div>
+        </div>
+
+        <!-- Documentos -->
+        <div id="documentos" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Repositório de Documentos</h2>
+            <button id="btnUploadDocumento" onclick="showUploadDocForm()" class="btn btn-primary">+ Enviar Documento</button>
+          </div>
+
+          <div id="uploadDocForm" class="form-section" style="display: none;">
+            <h3>Enviar Documento</h3>
+            <form id="formUploadDoc">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="docName">Nome do Documento:</label>
+                  <input type="text" id="docName" name="name" minlength="2" maxlength="120" required>
+                </div>
+                <div class="form-group">
+                  <label for="docCategory">Categoria:</label>
+                  <select id="docCategory" name="category">
+                    <option value="">Selecione...</option>
+                    <option value="Políticas">Políticas</option>
+                    <option value="Procedimentos">Procedimentos</option>
+                    <option value="Relatórios">Relatórios</option>
+                    <option value="Manuais">Manuais</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="docDescription">Descrição:</label>
+                  <textarea id="docDescription" name="description" rows="3" maxlength="500"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="docFile">Selecionar Arquivo:</label>
+                <input type="file" id="docFile" name="document" required>
+              </div>
+              <div style="text-align: right;">
+                <button type="button" onclick="hideUploadDocForm()" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Enviar</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-section">
+            <h3>Documentos Disponíveis</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Categoria</th>
+                  <th>Tamanho</th>
+                  <th>Enviado por</th>
+                  <th>Data</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="documentosTableBody">
+                <!-- Documentos serão carregados aqui -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Funcionários -->
+        <div id="funcionarios" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Gerenciamento de Funcionários</h2>
+            <button id="btnNovoFuncionario" onclick="showNewFuncionarioForm()" class="btn btn-primary">+ Novo Funcionário</button>
+          </div>
+
+          <div id="newFuncionarioForm" class="form-section" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3>Cadastrar Novo Funcionário</h3>
+            <form id="formNewFuncionario">
+              <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                  <label for="funcNome">Nome:</label>
+                  <input type="text" id="funcNome" name="nome" minlength="2" maxlength="100" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label for="funcCargo">Cargo:</label>
+                  <input type="text" id="funcCargo" name="cargo" minlength="2" maxlength="100" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                  <label for="funcRamal">Ramal:</label>
+                  <input type="text" id="funcRamal" name="ramal" maxlength="20" pattern="[0-9()+\\-\\s]{3,20}" title="Use apenas números, espaços, parênteses, + e -" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label for="funcEmail">Email:</label>
+                  <input type="email" id="funcEmail" name="email" maxlength="100" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                  <label for="funcDepartamento">Departamento:</label>
+                  <input type="text" id="funcDepartamento" name="departamento" maxlength="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label for="funcFoto">Foto:</label>
+                  <input type="file" id="funcFoto" name="foto" accept="image/*" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+              </div>
+              <div style="text-align: right; margin-top: 15px;">
+                <button type="button" onclick="hideFuncionarioForm()" class="btn btn-secondary" style="margin-right: 10px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Cadastrar</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-section">
+            <h3>Funcionários Cadastrados</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+              <input type="text" id="buscaFuncionarios" placeholder="Buscar funcionário..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+              <button onclick="executarBuscaFunc()" class="btn btn-primary">Buscar</button>
+              <button onclick="limparBuscaFunc()" class="btn btn-secondary">Limpar</button>
+            </div>
+            <div id="funcionariosGaleria" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; margin-top: 20px;">
+              <p style="grid-column: 1/-1; text-align: center; color: #999; padding: 40px;">Carregando...</p>
+            </div>
+            <div id="funcionariosPaginacao" style="text-align: center; margin-top: 20px;"></div>
+          </div>
+        </div>
+
+        <!-- Usuários -->
+        <div id="usuarios" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Cadastro de Usuários</h2>
+            <button onclick="showNewUsuarioForm()" class="btn btn-primary">+ Novo Usuário</button>
+          </div>
+
+          <div id="newUsuarioForm" class="form-section" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3>Cadastrar Novo Usuário</h3>
+            <form id="formNewUsuario">
+              <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                  <label for="usuarioLogin">Login:</label>
+                  <input type="text" id="usuarioLogin" name="username" minlength="3" maxlength="30" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label for="usuarioSenha">Senha:</label>
+                  <input type="password" id="usuarioSenha" name="password" minlength="6" maxlength="72" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                  <label for="usuarioPerfil">Perfil:</label>
+                  <select id="usuarioPerfil" name="role" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="viewer">Visualizador</option>
+                    <option value="creator">Criador</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+              </div>
+              <div style="text-align: right; margin-top: 15px;">
+                <button type="button" onclick="hideUsuarioForm()" class="btn btn-secondary" style="margin-right: 10px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Cadastrar</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-section">
+            <h3>Usuários Cadastrados</h3>
+            <div id="usuariosTableWrap" style="overflow-x: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Login</th>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Perfil</th>
+                    <th>Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="usuariosTableBody">
+                  <!-- Usuários serão carregados aqui -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal para detalhes do chamado -->
+  <div id="chamadoModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="close" onclick="closeChamadoModal()">&times;</span>
+      <h2>Detalhes do Chamado</h2>
+      <div id="chamadoDetails"></div>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js?v=20260321"></script>
+  <script>
+    window.deleteComunicado = async function(comunicadoId) {
+      if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {
+        alert('Seu perfil não tem permissão para deletar comunicados.');
+        return;
+      }
+
+      if (!confirm('Tem certeza que deseja deletar este comunicado?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:5000/api/comunicados/${comunicadoId}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        const data = contentType.includes('application/json') ? await response.json() : { error: await response.text() };
+        const apiMessage = data?.error || data?.message || 'Erro ao deletar comunicado';
+
+        if (response.ok) {
+          alert(data.message || 'Comunicado deletado com sucesso!');
+          if (typeof loadComunicados === 'function') loadComunicados();
+          if (typeof loadDashboard === 'function') loadDashboard();
+        } else {
+          alert(apiMessage);
+        }
+      } catch (error) {
+        console.error('Erro ao deletar comunicado:', error);
+        alert('Erro ao deletar comunicado: ' + error.message);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Teste de Imagem</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    img { max-width: 300px; border: 2px solid red; margin: 20px 0; }
+    .section { margin: 20px 0; padding: 20px; background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>Teste de Imagem do Servidor</h1>
+  
+  <div class="section">
+    <h2>URL de Teste:</h2>
+    <p id="url"></p>
+  </div>
+
+  <div class="section">
+    <h2>Imagem Carregada:</h2>
+    <img id="testImg" alt="Teste" onerror="handleError()">
+  </div>
+
+  <div class="section">
+    <h2>Status:</h2>
+    <p id="status">Carregando...</p>
+  </div>
+
+  <script>
+    const imageUrl = 'http://localhost:5000/uploads/funcionarios/funcionario-1774049564342-482627289.jpg';
+    
+    document.getElementById('url').textContent = imageUrl;
+    document.getElementById('testImg').src = imageUrl;
+    
+    document.getElementById('testImg').onload = function() {
+      document.getElementById('status').textContent = '✅ IMAGEM CARREGADA COM SUCESSO!';
+      document.getElementById('status').style.color = 'green';
+    };
+    
+    function handleError() {
+      document.getElementById('status').textContent = '❌ ERRO AO CARREGAR IMAGEM';
+      document.getElementById('status').style.color = 'red';
+    }
+  </script>
+</body>
+</html>

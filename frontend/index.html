@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intranet - Login</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <h1>Intranet</h1>
+        <p>Sistema de Gestão Corporativa</p>
+      </div>
+
+      <div id="loginForm" class="form-container">
+        <h2>Login</h2>
+        <form id="formLogin">
+          <div class="form-group">
+            <label for="username">Usuário:</label>
+            <input type="text" id="username" name="username" minlength="3" maxlength="30" required>
+          </div>
+          <div class="form-group">
+            <label for="password">Senha:</label>
+            <input type="password" id="password" name="password" minlength="6" maxlength="72" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+        </form>
+        <p class="toggle-form" style="text-align: center; margin-top: 15px;">
+          Não tem conta? <a href="#" onclick="toggleForms()">Registre-se aqui</a>
+        </p>
+      </div>
+
+      <div id="registerForm" class="form-container" style="display: none;">
+        <h2>Registrar</h2>
+        <form id="formRegister">
+          <div class="form-group">
+            <label for="name">Nome Completo:</label>
+            <input type="text" id="name" name="name" minlength="2" maxlength="100" required>
+          </div>
+          <div class="form-group">
+            <label for="regUsername">Usuário:</label>
+            <input type="text" id="regUsername" name="regUsername" minlength="3" maxlength="30" required>
+          </div>
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" maxlength="100" required>
+          </div>
+          <div class="form-group">
+            <label for="regPassword">Senha:</label>
+            <input type="password" id="regPassword" name="regPassword" minlength="6" maxlength="72" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Registrar</button>
+        </form>
+        <p class="toggle-form" style="text-align: center; margin-top: 15px;">
+          Já tem conta? <a href="#" onclick="toggleForms()">Faça login</a>
+        </p>
+      </div>
+
+      <div id="message" class="message"></div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+</body>
+</html>
