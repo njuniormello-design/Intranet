@@ -47,11 +47,15 @@ router.post(
       const requestedRole = normalizeRole(req.body.role);
       const currentRole = normalizeRole(req.user.role);
 
+      if (currentRole === 'creator' && !['viewer', 'creator'].includes(requestedRole)) {
+        return res.status(403).json({ error: 'Criadores podem criar apenas usuarios visualizador ou criador' });
+      }
+
       if (currentRole !== 'admin' && requestedRole === 'admin') {
         return res.status(403).json({ error: 'Apenas administradores podem criar usuarios admin' });
       }
 
-      const role = currentRole === 'creator' && requestedRole === 'admin' ? 'viewer' : requestedRole;
+      const role = requestedRole;
       const email = req.body.email ? String(req.body.email).trim().toLowerCase() : buildGeneratedEmail(username);
       const name = req.body.name ? String(req.body.name).trim() : username;
 

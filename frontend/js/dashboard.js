@@ -12,6 +12,7 @@ const ROLE_LABELS = {
 const RECENT_ANNOUNCEMENTS_LIMIT = 10;
 let chamadosCache = [];
 let comunicadosCache = [];
+let documentosCache = [];
 let funcionariosCache = [];
 let editingChamadoId = null;
 let editingChamadoData = null;
@@ -32,6 +33,10 @@ function getCurrentRole() {
 
 function canAccessUsers() {
   return ['admin', 'creator'].includes(getCurrentRole());
+}
+
+function getAllowedUserRoles() {
+  return getCurrentRole() === 'admin' ? ['viewer', 'creator', 'admin'] : ['viewer', 'creator'];
 }
 
 function canManageCatalogs() {
@@ -61,6 +66,82 @@ function showValidationAlert(errors) {
   if (!errors.length) return false;
   alert(`Corrija os campos abaixo:\n\n- ${errors.join('\n- ')}`);
   return true;
+}
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function getDocumentoSearchText(documento) {
+  return [
+    documento?.name,
+    documento?.category,
+    documento?.description,
+    documento?.uploader_name,
+    documento?.file_name
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function renderDocumentosList(filterValue = '') {
+  const tableBody = document.getElementById('documentosTableBody');
+  if (!tableBody) return;
+
+  const normalizedFilter = normalizeSearchText(filterValue);
+  const filteredDocumentos = normalizedFilter
+    ? documentosCache.filter(documento => normalizeSearchText(getDocumentoSearchText(documento)).includes(normalizedFilter))
+    : documentosCache;
+
+  if (documentosCache.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum documento disponível</td></tr>';
+    return;
+  }
+
+  if (filteredDocumentos.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum documento encontrado para a busca</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = filteredDocumentos.map(d => `
+    <tr>
+      <td>${d.name}</td>
+      <td>${d.category || '-'}</td>
+      <td>${(d.file_size / 1024 / 1024).toFixed(2)} MB</td>
+      <td>${d.uploader_name}</td>
+      <td>${new Date(d.created_at).toLocaleDateString('pt-BR')}</td>
+      <td>
+        <button onclick="downloadDocument(${d.id}, '${d.file_name}')" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;">Download</button>
+        ${(canManageCatalogs() || currentUser.id === d.user_id) ? `<button onclick="deleteDocument(${d.id})" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">Delete</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function syncUsuarioRoleOptions() {
+  const select = document.getElementById('usuarioPerfil');
+  if (!select) return;
+
+  const allowedRoles = getAllowedUserRoles();
+  const currentValue = select.value;
+  const options = {
+    viewer: 'Visualizador',
+    creator: 'Criador',
+    admin: 'Administrador'
+  };
+
+  select.innerHTML = allowedRoles
+    .map(role => `<option value="${role}">${options[role]}</option>`)
+    .join('');
+
+  if (allowedRoles.includes(currentValue)) {
+    select.value = currentValue;
+  } else {
+    select.value = allowedRoles[0] || 'viewer';
+  }
 }
 
 async function readApiResponse(response) {
@@ -976,6 +1057,58 @@ async function deleteDocument(docId) {
   }
 }
 
+// ==================== DOCUMENTOS - BUSCA ====================
+document.getElementById('docSearch')?.addEventListener('input', (event) => {
+  renderDocumentosList(event.target.value);
+});
+
+function renderDocumentosList(filterValue = '') {
+  const tableBody = document.getElementById('documentosTableBody');
+  if (!tableBody) return;
+
+  const normalizedFilter = normalizeSearchText(filterValue);
+  const filteredDocumentos = normalizedFilter
+    ? documentosCache.filter(documento => normalizeSearchText(getDocumentoSearchText(documento)).includes(normalizedFilter))
+    : documentosCache;
+
+  if (documentosCache.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum documento disponível</td></tr>';
+    return;
+  }
+
+  if (filteredDocumentos.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum documento encontrado para a busca</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = filteredDocumentos.map(d => `
+    <tr>
+      <td>${d.name}</td>
+      <td>${d.category || '-'}</td>
+      <td>${(d.file_size / 1024 / 1024).toFixed(2)} MB</td>
+      <td>${d.uploader_name}</td>
+      <td>${new Date(d.created_at).toLocaleDateString('pt-BR')}</td>
+      <td>
+        <button onclick="downloadDocument(${d.id}, '${d.file_name}')" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;">Download</button>
+        ${(canManageCatalogs() || currentUser.id === d.user_id) ? `<button onclick="deleteDocument(${d.id}')" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">Delete</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function loadDocumentos() {
+  try {
+    const response = await fetch(`${API_URL}/documentos/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    documentosCache = await response.json();
+    renderDocumentosList(document.getElementById('docSearch')?.value || '');
+  } catch (error) {
+    console.error('Erro ao carregar documentos:', error);
+  }
+}
+
 // ==================== FUNCIONÁRIOS ====================
 let paginaAtualFunc = 1;
 let limiteFunc = 12;
@@ -1264,6 +1397,7 @@ function showNewUsuarioForm() {
   }
 
   const form = document.getElementById('newUsuarioForm');
+  syncUsuarioRoleOptions();
   if (form) form.style.display = 'block';
 }
 
@@ -1295,7 +1429,8 @@ if (formNewUsuario) {
     if (!validateLength(password, 6, 72)) {
       validationErrors.push('Senha deve ter entre 6 e 72 caracteres');
     }
-    if (!['admin', 'creator', 'viewer'].includes(role)) {
+    const allowedRoles = getAllowedUserRoles();
+    if (!allowedRoles.includes(role)) {
       validationErrors.push('Selecione um perfil válido');
     }
 
