@@ -88,10 +88,21 @@ router.get('/my-chamados', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const connection = await pool.getConnection();
+    const { where, params: filterParams } = buildChamadoFilters(req);
+    const orderClause = buildChamadoOrderClause();
+    const queryParts = ['SELECT * FROM chamados WHERE user_id = ?'];
+    const queryParams = [userId];
+
+    if (where.length > 0) {
+      queryParts.push(`AND ${where.join(' AND ')}`);
+      queryParams.push(...filterParams);
+    }
+
+    queryParts.push(orderClause.clause);
 
     const [chamados] = await connection.query(
-      'SELECT * FROM chamados WHERE user_id = ? ORDER BY created_at DESC',
-      [userId]
+      queryParts.join(' '),
+      [...queryParams, ...orderClause.params]
     );
 
     // Buscar anexos de cada chamado
@@ -107,6 +118,9 @@ router.get('/my-chamados', authenticateToken, async (req, res) => {
     res.json(chamados);
   } catch (error) {
     console.error(error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Erro ao buscar chamados' });
   }
 });
@@ -115,9 +129,21 @@ router.get('/my-chamados', authenticateToken, async (req, res) => {
 router.get('/all', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const connection = await pool.getConnection();
+    const { where, params: filterParams } = buildChamadoFilters(req, 'c');
+    const orderClause = buildChamadoOrderClause('c');
+    const queryParts = ['SELECT c.*, u.name as user_name FROM chamados c JOIN users u ON c.user_id = u.id'];
+    const queryParams = [];
+
+    if (where.length > 0) {
+      queryParts.push(`WHERE ${where.join(' AND ')}`);
+      queryParams.push(...filterParams);
+    }
+
+    queryParts.push(orderClause.clause);
 
     const [chamados] = await connection.query(
-      'SELECT c.*, u.name as user_name FROM chamados c JOIN users u ON c.user_id = u.id ORDER BY c.created_at DESC'
+      queryParts.join(' '),
+      [...queryParams, ...orderClause.params]
     );
 
     // Buscar anexos de cada chamado
@@ -133,6 +159,9 @@ router.get('/all', authenticateToken, authorizeRoles('admin'), async (req, res) 
     res.json(chamados);
   } catch (error) {
     console.error(error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Erro ao buscar chamados' });
   }
 });
@@ -220,6 +249,72 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin'), [
     res.status(500).json({ error: 'Erro ao atualizar chamado' });
   }
 });
+
+const CHAMADO_STATUS_GROUPS = {
+  ativos: ['aberto', 'pendente'],
+  aberto: ['aberto'],
+  pendente: ['pendente'],
+  fechado: ['fechado'],
+  todos: ['aberto', 'pendente', 'fechado']
+};
+
+const PRIORITY_ORDER = ['urgente', 'alta', 'normal', 'baixa'];
+
+function parseChamadoDate(value, isEndOfDay = false) {
+  if (!value) return null;
+  const date = new Date(`${value}T${isEndOfDay ? '23:59:59.999' : '00:00:00.000'}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildChamadoFilters(req, tableAlias = '') {
+  const statusGroup = String(req.query.statusGroup || 'ativos').toLowerCase();
+  const statuses = CHAMADO_STATUS_GROUPS[statusGroup] || CHAMADO_STATUS_GROUPS.ativos;
+  const fromDate = parseChamadoDate(req.query.from, false);
+  const toDate = parseChamadoDate(req.query.to, true);
+  const alias = tableAlias ? `${tableAlias}.` : '';
+  const where = [];
+  const params = [];
+
+  if (statusGroup !== 'todos') {
+    where.push(`${alias}status IN (${statuses.map(() => '?').join(', ')})`);
+    params.push(...statuses);
+  }
+
+  if (fromDate) {
+    where.push(`${alias}created_at >= ?`);
+    params.push(fromDate.toISOString().slice(0, 19).replace('T', ' '));
+  }
+
+  if (toDate) {
+    where.push(`${alias}created_at <= ?`);
+    params.push(toDate.toISOString().slice(0, 19).replace('T', ' '));
+  }
+
+  if (fromDate && toDate) {
+    const diffDays = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (diffDays > 30) {
+      const error = new Error('O intervalo de datas deve ter no máximo 30 dias');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (fromDate > toDate) {
+      const error = new Error('A data inicial não pode ser maior que a data final');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  return { where, params, statusGroup };
+}
+
+function buildChamadoOrderClause(tableAlias = '') {
+  const alias = tableAlias ? `${tableAlias}.` : '';
+  const priorityOrder = PRIORITY_ORDER.map(() => '?').join(', ');
+  return {
+    clause: `ORDER BY FIELD(${alias}priority, ${priorityOrder}), ${alias}created_at DESC`,
+    params: [...PRIORITY_ORDER]
+  };
+}
 
 // Atualizar chamado completo (admin)
 router.put('/:id', authenticateToken, authorizeRoles('admin'), [

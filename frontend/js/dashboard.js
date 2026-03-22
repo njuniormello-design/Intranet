@@ -47,14 +47,87 @@ function isAdmin() {
   return getCurrentRole() === 'admin';
 }
 
-function getChamadosEndpoint() {
-  return isAdmin() ? `${API_URL}/chamados/all` : `${API_URL}/chamados/my-chamados`;
+function getChamadosEndpoint(filters = {}) {
+  const baseUrl = isAdmin() ? `${API_URL}/chamados/all` : `${API_URL}/chamados/my-chamados`;
+  const params = new URLSearchParams();
+
+  if (filters.statusGroup) params.set('statusGroup', filters.statusGroup);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+
+  const query = params.toString();
+  return query ? `${baseUrl}?${query}` : baseUrl;
 }
 
 function getChamadoUserName(chamado) {
   if (chamado?.user_name) return chamado.user_name;
   if (chamado?.name) return chamado.name;
   return currentUser.name || currentUser.username || 'Usuário';
+}
+
+function getChamadoPriorityRank(priority) {
+  const normalized = normalizeSearchText(priority);
+  if (normalized === 'urgente') return 0;
+  if (normalized === 'alta') return 1;
+  if (normalized === 'normal') return 2;
+  if (normalized === 'baixa') return 3;
+  return 4;
+}
+
+function sortChamados(chamados) {
+  return [...(Array.isArray(chamados) ? chamados : [])].sort((a, b) => {
+    const priorityDiff = getChamadoPriorityRank(a?.priority) - getChamadoPriorityRank(b?.priority);
+    if (priorityDiff !== 0) return priorityDiff;
+    const dateA = new Date(a?.created_at || 0).getTime();
+    const dateB = new Date(b?.created_at || 0).getTime();
+    return dateB - dateA;
+  });
+}
+
+function getChamadosFilterState() {
+  const statusGroup = document.getElementById('chamadoStatusFilter')?.value || 'ativos';
+  const from = document.getElementById('chamadoDateFrom')?.value || '';
+  const to = document.getElementById('chamadoDateTo')?.value || '';
+  return { statusGroup, from, to };
+}
+
+function validateChamadosDateRange(from, to) {
+  if (!from || !to) return true;
+
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T23:59:59.999`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    alert('Selecione datas válidas.');
+    return false;
+  }
+
+  if (start > end) {
+    alert('A data inicial não pode ser maior que a data final.');
+    return false;
+  }
+
+  const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  if (diffDays > 30) {
+    alert('O intervalo de datas deve ter no máximo 30 dias.');
+    return false;
+  }
+
+  return true;
+}
+
+function syncChamadoDateInputs() {
+  const today = new Date();
+  const maxDate = today.toISOString().slice(0, 10);
+
+  const fromInput = document.getElementById('chamadoDateFrom');
+  const toInput = document.getElementById('chamadoDateTo');
+
+  if (fromInput) {
+    fromInput.max = maxDate;
+  }
+  if (toInput) {
+    toInput.max = maxDate;
+  }
 }
 
 function getFieldValue(id) {
@@ -340,7 +413,7 @@ async function loadDashboard() {
     const headers = { Authorization: `Bearer ${token}` };
 
     // Carregar chamados
-    const chamadosRes = await fetch(getChamadosEndpoint(), { headers });
+    const chamadosRes = await fetch(getChamadosEndpoint({ statusGroup: 'todos' }), { headers });
     const chamados = await chamadosRes.json();
     chamadosCache = Array.isArray(chamados) ? chamados : [];
     const openTickets = chamadosCache.filter(c => c.status === 'aberto').length;
@@ -450,14 +523,37 @@ document.getElementById('formNewChamado')?.addEventListener('submit', async (e) 
   }
 });
 
+document.getElementById('chamadoStatusFilter')?.addEventListener('change', () => {
+  loadChamados();
+});
+
+document.getElementById('chamadoDateFrom')?.addEventListener('change', () => {
+  loadChamados();
+});
+
+document.getElementById('chamadoDateTo')?.addEventListener('change', () => {
+  loadChamados();
+});
+
+syncChamadoDateInputs();
+
 async function loadChamados() {
   try {
-    const response = await fetch(getChamadosEndpoint(), {
+    const filters = getChamadosFilterState();
+    if (!validateChamadosDateRange(filters.from, filters.to)) {
+      return;
+    }
+
+    const response = await fetch(getChamadosEndpoint(filters), {
       headers: { Authorization: `Bearer ${token}` }
     });
 
     const chamados = await response.json();
-    chamadosCache = Array.isArray(chamados) ? chamados : [];
+    if (!response.ok) {
+      throw new Error(chamados?.error || 'Erro ao carregar chamados');
+    }
+
+    chamadosCache = sortChamados(Array.isArray(chamados) ? chamados : []);
     const tableBody = document.getElementById('chamadosTableBody');
 
     if (chamadosCache.length === 0) {

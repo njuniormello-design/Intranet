@@ -161,8 +161,32 @@
             </form>
           </div>
 
+          <div class="form-section" style="margin-bottom: 20px;">
+            <h3>Filtrar Chamados</h3>
+            <div class="form-row">
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoStatusFilter">Tipo:</label>
+                <select id="chamadoStatusFilter" name="statusFilter">
+                  <option value="ativos" selected>Abertos e pendentes</option>
+                  <option value="aberto">Abertos</option>
+                  <option value="pendente">Pendentes</option>
+                  <option value="fechado">Fechados</option>
+                  <option value="todos">Todos</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoDateFrom">Data inicial:</label>
+                <input type="date" id="chamadoDateFrom" name="dateFrom">
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoDateTo">Data final:</label>
+                <input type="date" id="chamadoDateTo" name="dateTo">
+              </div>
+            </div>
+          </div>
+
           <div class="table-section">
-            <h3>Meus Chamados</h3>
+            <h3>Chamados</h3>
             <table class="data-table">
               <thead>
                 <tr>
