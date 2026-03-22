@@ -38,7 +38,17 @@ function carregarSidebar() {
     sidebar.innerHTML = `
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>Intranet</h2>
+                <div class="brand">
+                    <div class="brand-mark" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" role="img" focusable="false">
+                            <circle class="brand-ring" cx="32" cy="32" r="20"></circle>
+                            <path class="brand-power" d="M32 14v18"></path>
+                        </svg>
+                    </div>
+                    <div class="brand-copy">
+                        <span class="brand-name">Intranet LI</span>
+                    </div>
+                </div>
             </div>
             <nav class="sidebar-nav">
                 <ul>
