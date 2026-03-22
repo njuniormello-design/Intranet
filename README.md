@@ -107,18 +107,13 @@ O servidor rodará em `http://localhost:5000`
 ### 4. Configurar o Frontend
 
 ```bash
-# Na pasta frontend, servir os arquivos HTML
-# Opção 1: Usar Python
-python -m http.server 8000
-
-# Opção 2: Usar Node.js com http-server
-npx http-server -p 8000
-
-# Opção 3: Usar VS Code Live Server Extension
-# Basta clicar em "Go Live" no canto inferior direito
+cd frontend
+npm start
 ```
 
-Acesse `http://localhost:8000` (ou a porta que configurou)
+O frontend será servido em `http://localhost:8000`
+
+Se preferir, também pode abrir `frontend/index.html` com um servidor estático separado.
 
 ## Configuração do .env Backend
 

@@ -51,18 +51,11 @@ npm start
 Em um **novo terminal**:
 
 ```bash
-# Opção 1: Se tem Python instalado
 cd frontend
-python -m http.server 8000
-
-# Opção 2: Se tem Node.js
-npx http-server frontend -p 8000
-
-# Opção 3: Se usa VS Code
-# Abra a pasta frontend
-# Clique com botão direito em index.html
-# Selecione "Open with Live Server"
+npm start
 ```
+
+O frontend ficará disponível em `http://localhost:8000`
 
 ### Passo 4: Acessar a Aplicação (1 min)
 
@@ -140,7 +133,7 @@ Ou registre uma nova conta via "Registre-se aqui"
 **Solução:**
 ```bash
 # Use uma porta diferente
-python -m http.server 9000  # ou qualquer porta disponível
+$env:PORT=9000; npm start  # ou qualquer porta disponível
 # Acesse: http://localhost:9000
 ```
 

@@ -1,8 +1,9 @@
 const API_URL =
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1'
+  window.location.protocol === 'file:'
     ? 'http://localhost:5000/api'
-    : '/api';
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : '/api';
 
 function toggleForms() {
   document.getElementById('loginForm').style.display =

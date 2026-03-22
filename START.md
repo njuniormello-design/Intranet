@@ -85,13 +85,10 @@ Aguarde mensagem: "Servidor rodando na porta 5000"
 Novo terminal na pasta `frontend`:
 
 ```bash
-python -m http.server 8000
+npm start
 ```
 
-Ou se usar Node.js:
-```bash
-npx http-server -p 8000
-```
+O frontend ficará disponível em `http://localhost:8000`
 
 ### Acessar (1 min)
 
@@ -296,7 +293,7 @@ localStorage.clear()
 
 ---
 
-**Próximo passo:** Execute `npm start` no backend e `python -m http.server 8000` no frontend, depois acesse `http://localhost:8000`
+**Próximo passo:** Execute `npm start` no backend e `npm start` na pasta `frontend`, depois acesse `http://localhost:8000`
 
 
 **Sistema Desenvolvido por Nelson Junior com IA Assistida**
