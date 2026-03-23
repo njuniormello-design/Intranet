@@ -6,18 +6,20 @@
 }
 
 :root {
-  --primary-color: #2563eb;
-  --secondary-color: #64748b;
+  --primary-color: #6f9b82;
+  --primary-color-dark: #5d846e;
+  --primary-soft: #f0f6f2;
+  --secondary-color: #74867c;
   --danger-color: #dc2626;
   --success-color: #16a34a;
   --warning-color: #ea580c;
-  --background-color: #f8fafc;
+  --background-color: #ffffff;
   --card-bg: #ffffff;
-  --text-dark: #1e293b;
-  --text-light: #64748b;
-  --border-color: #e2e8f0;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+  --text-dark: #24332b;
+  --text-light: #718077;
+  --border-color: #dde8e0;
+  --shadow: 0 1px 3px rgba(36, 51, 43, 0.06);
+  --shadow-lg: 0 10px 25px rgba(36, 51, 43, 0.10);
 }
 
 body {
@@ -37,7 +39,7 @@ html, body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--primary-color), #1e40af);
+  background: #ffffff;
 }
 
 .login-box {
@@ -124,7 +126,7 @@ html, body {
   width: 100%;
   padding-bottom: 15px;
   margin-bottom: 22px;
-  border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+  border-bottom: 2px solid rgba(111, 155, 130, 0.16);
 }
 
 .sidebar-header .brand-copy h2,
@@ -162,13 +164,13 @@ html, body {
 .form-group textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d3ddd6;
   border-radius: 6px;
   font-size: 14px;
-  background-color: #f8fafc;
+  background-color: #fafcfb;
   box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.04),
-    0 1px 2px rgba(15, 23, 42, 0.06);
+    inset 0 1px 2px rgba(32, 53, 43, 0.04),
+    0 1px 2px rgba(32, 53, 43, 0.06);
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s, background-color 0.3s;
 }
 
@@ -179,8 +181,8 @@ html, body {
   border-color: var(--primary-color);
   background-color: #ffffff;
   box-shadow:
-    0 0 0 3px rgba(37, 99, 235, 0.10),
-    0 2px 6px rgba(15, 23, 42, 0.10);
+    0 0 0 3px rgba(111, 155, 130, 0.12),
+    0 2px 6px rgba(36, 51, 43, 0.08);
   transform: translateY(-1px);
 }
 
@@ -240,7 +242,7 @@ html, body {
 }
 
 .btn-primary:hover {
-  background-color: #1d4ed8;
+  background-color: var(--primary-color-dark);
   transform: translateY(-2px);
   box-shadow: var(--shadow);
 }
@@ -285,12 +287,13 @@ html, body {
 /* ==================== SIDEBAR ==================== */
 .sidebar {
   width: 300px;
-  background-color: var(--text-dark);
-  color: white;
+  background: #ffffff;
+  color: var(--text-dark);
   padding: 20px 15px;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
+  border-right: 1px solid var(--border-color);
 }
 
 .sidebar-nav {
@@ -301,7 +304,7 @@ html, body {
   display: flex;
   align-items: center;
   padding: 12px 15px;
-  color: #cbd5e1;
+  color: var(--text-dark);
   text-decoration: none;
   border-radius: 5px;
   margin-bottom: 10px;
@@ -311,8 +314,8 @@ html, body {
 
 .nav-link:hover,
 .nav-link.active {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--primary-soft);
+  color: var(--primary-color-dark);
 }
 
 .nav-link .icon {
@@ -321,7 +324,7 @@ html, body {
 }
 
 .sidebar-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-color);
   padding-top: 15px;
 }
 
@@ -470,8 +473,8 @@ html, body {
 }
 
 .announcement-badge.normal {
-  background-color: #dbeafe;
-  color: #0c4a6e;
+  background-color: #edf5f0;
+  color: #486554;
 }
 
 .announcement-content {
@@ -523,7 +526,7 @@ html, body {
   padding: 14px 16px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f6faf7 100%);
   color: var(--text-dark);
 }
 
@@ -614,8 +617,8 @@ html, body {
 }
 
 .status-badge.aberto {
-  background-color: #dbeafe;
-  color: #0c4a6e;
+  background-color: #edf5f0;
+  color: #486554;
 }
 
 .status-badge.fechado {
@@ -637,8 +640,8 @@ html, body {
 }
 
 .priority-badge.baixa {
-  background-color: #dbeafe;
-  color: #0c4a6e;
+  background-color: #edf5f0;
+  color: #486554;
 }
 
 .priority-badge.normal {
@@ -752,7 +755,7 @@ small {
 
   .sidebar-footer {
     border-top: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid var(--border-color);
     padding: 0 15px;
   }
 
