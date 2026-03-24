@@ -39,6 +39,9 @@
         <a href="#" class="nav-link" onclick="loadPage('funcionarios', event)">
           <span class="icon">👥</span> Funcionários
         </a>
+        <a href="#" class="nav-link" onclick="loadPage('ideias', event)">
+          <span class="icon">💡</span> Banco de Ideias
+        </a>
         <a href="#" class="nav-link" id="navUsuarios" onclick="loadPage('usuarios', event)">
           <span class="icon">👤</span> Usuários
         </a>
@@ -70,6 +73,66 @@
       <div class="content-area" id="contentArea">
         <!-- Dashboard -->
         <div id="dashboard" class="page-content">
+          <section class="quick-links-section">
+            <div class="quick-links-header">
+              <h2>Acessos Rápidos</h2>
+              <p>Links externos mais usados no dia a dia.</p>
+            </div>
+
+            <div class="quick-links-grid">
+              <a class="quick-link-card" href="https://londrinailuminacao.com.br/" target="_blank" rel="noopener noreferrer">
+                <div class="quick-link-icon" aria-hidden="true">🌐</div>
+                <h3>Portal do Site</h3>
+                <p>Portal de Iluminação</p>
+                <span class="quick-link-action">Acessar</span>
+              </a>
+
+              <a class="quick-link-card" href="https://escoladegoverno.londrina.pr.gov.br/" target="_blank" rel="noopener noreferrer">
+                <div class="quick-link-icon" aria-hidden="true">🎓</div>
+                <h3>EAD Iluminação</h3>
+                <p>Cursos e Capacitação</p>
+                <span class="quick-link-action">Acessar</span>
+              </a>
+
+              <a class="quick-link-card" href="https://sei.londrina.pr.gov.br/" target="_blank" rel="noopener noreferrer">
+                <div class="quick-link-logo quick-link-logo--sei" aria-hidden="true">
+                  <span class="sei-wordmark">
+                    <span class="sei-letter sei-letter--s">s</span><span class="sei-letter sei-letter--e">e</span><span class="sei-letter sei-letter--i">i</span><span class="sei-bang">!</span>
+                  </span>
+                </div>
+                <h3>SEI PML</h3>
+                <p>Processo Eletrônico</p>
+                <span class="quick-link-action">Acessar</span>
+              </a>
+
+              <a class="quick-link-card" href="https://ctdlondrina.roover.app.br/login" target="_blank" rel="noopener noreferrer">
+                <div class="quick-link-logo quick-link-logo--roover" aria-hidden="true">
+                  <svg class="roover-svg" viewBox="0 0 64 64" role="img" focusable="false">
+                    <defs>
+                      <linearGradient id="rooverGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#16a34a" />
+                        <stop offset="100%" stop-color="#a3e635" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M10 50 C22 43, 34 39, 54 37" />
+                    <path d="M22 37 L32 20" />
+                    <path d="M32 20 L28 22" />
+                    <path d="M32 20 L31 25" />
+                    <path d="M31 42 L43 28" />
+                    <path d="M43 28 L38 29" />
+                    <path d="M43 28 L42 33" />
+                    <path d="M18 44 L28 31" />
+                    <path d="M28 31 L23 32" />
+                    <path d="M28 31 L27 36" />
+                  </svg>
+                </div>
+                <h3>Roover</h3>
+                <p>Gestão Funcional</p>
+                <span class="quick-link-action">Acessar</span>
+              </a>
+            </div>
+          </section>
+
           <div class="dashboard-grid">
             <div class="dashboard-card">
               <h3>Chamados Abertos</h3>
@@ -448,6 +511,63 @@
             </div>
           </div>
         </div>
+
+        <div id="ideias" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Banco de Ideias</h2>
+          </div>
+
+          <div class="form-section" style="margin-bottom: 20px;">
+            <h3>Enviar Nova Ideia</h3>
+            <p style="margin-bottom: 16px; color: #64748b;">Envie sugestões de melhoria, novos processos ou oportunidades para a empresa.</p>
+            <form id="formNovaIdeia">
+              <div class="form-row">
+                <div class="form-group" style="flex: 2;">
+                  <label for="ideiaTitulo">Título da ideia:</label>
+                  <input type="text" id="ideiaTitulo" name="titulo" minlength="3" maxlength="150" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label for="ideiaCategoria">Categoria:</label>
+                  <input type="text" id="ideiaCategoria" name="categoria" maxlength="100" placeholder="Ex.: Processos, TI, RH">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="ideiaDescricao">Descreva sua ideia:</label>
+                <textarea id="ideiaDescricao" name="descricao" rows="6" minlength="10" maxlength="2000" placeholder="Explique a ideia, o problema que ela resolve e os benefícios esperados." required></textarea>
+              </div>
+              <div style="text-align: right;">
+                <button type="submit" class="btn btn-primary">Enviar Ideia</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="ideiasAdminSection" class="table-section" style="display: none;">
+            <h3>Ideias Recebidas</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Título</th>
+                  <th>Categoria</th>
+                  <th>Enviado por</th>
+                  <th>Departamento</th>
+                  <th>Data</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="ideiasTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 20px;">Carregando...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="ideiasViewerNotice" class="form-section" style="display: none;">
+            <h3>Envio para avaliação administrativa</h3>
+            <p style="color: #64748b; margin: 0;">As ideias cadastradas ficam visíveis somente para perfis administradores.</p>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -461,7 +581,7 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260321"></script>
+  <script src="js/dashboard.js?v=20260324-ideias"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {

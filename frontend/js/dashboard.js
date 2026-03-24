@@ -14,6 +14,7 @@ let chamadosCache = [];
 let comunicadosCache = [];
 let documentosCache = [];
 let funcionariosCache = [];
+let ideiasCache = [];
 let editingChamadoId = null;
 let editingChamadoData = null;
 let editingComunicadoId = null;
@@ -45,6 +46,10 @@ function canManageCatalogs() {
 
 function isAdmin() {
   return getCurrentRole() === 'admin';
+}
+
+function canViewIdeasInbox() {
+  return isAdmin();
 }
 
 function getChamadosEndpoint(filters = {}) {
@@ -352,6 +357,16 @@ function applyRolePermissions() {
   if (newComunicadoForm && !canManageCatalogs()) {
     newComunicadoForm.style.display = 'none';
   }
+
+  const ideiasAdminSection = document.getElementById('ideiasAdminSection');
+  if (ideiasAdminSection) {
+    ideiasAdminSection.style.display = canViewIdeasInbox() ? '' : 'none';
+  }
+
+  const ideiasViewerNotice = document.getElementById('ideiasViewerNotice');
+  if (ideiasViewerNotice) {
+    ideiasViewerNotice.style.display = canViewIdeasInbox() ? 'none' : '';
+  }
 }
 
 // Carregar página
@@ -361,7 +376,7 @@ function loadPage(page, evt) {
     return;
   }
 
-  const pages = ['dashboard', 'chamados', 'comunicados', 'documentos', 'funcionarios', 'usuarios'];
+  const pages = ['dashboard', 'chamados', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
   
   pages.forEach(p => {
     const pageEl = document.getElementById(p);
@@ -386,6 +401,7 @@ function loadPage(page, evt) {
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
     funcionarios: 'Gerenciamento de Funcionários',
+    ideias: 'Banco de Ideias',
     usuarios: 'Cadastro de Usuários'
   };
   const pageTitleEl = document.getElementById('pageTitle');
@@ -402,6 +418,8 @@ function loadPage(page, evt) {
     loadDocumentos();
   } else if (page === 'funcionarios') {
     loadFuncionarios();
+  } else if (page === 'ideias') {
+    loadIdeias();
   } else if (page === 'usuarios') {
     loadUsuarios();
   }
@@ -1369,7 +1387,7 @@ function renderizarGaleriaFunc(funcionarios) {
     
     return `
     <div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.3s; border: 1px solid #e0e0e0;">
-      <div style="width: 100%; height: 150px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 40px;">
+      <div style="width: 100%; aspect-ratio: 4 / 5; min-height: 210px; background: linear-gradient(180deg, #f8fafc, #e2e8f0); display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 40px;">
         ${fotoUrl ? `<img src="${fotoUrl}" alt="${f.nome}" style="width: 100%; height: 100%; object-fit: cover;" onerror="console.error('Erro ao carregar imagem: ${fotoUrl}')">` : '👤'}
       </div>
       <div style="padding: 12px; background: white;">
@@ -1386,6 +1404,14 @@ function renderizarGaleriaFunc(funcionarios) {
     </div>
   `;
   }).join('');
+
+  container.querySelectorAll('img').forEach((img) => {
+    img.style.objectFit = 'cover';
+    img.style.objectPosition = 'center top';
+    img.style.display = 'block';
+    img.style.width = '100%';
+    img.style.height = '100%';
+  });
 }
 
 function renderizarPaginacaoFunc(pagination) {
@@ -1482,6 +1508,120 @@ async function buscarFuncionariosProxy(termo) {
   } catch (error) {
     console.error('Erro na busca:', error);
     galeria.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: red;">Erro ao buscar: ' + error.message + '</p>';
+  }
+}
+
+// ==================== BANCO DE IDEIAS ====================
+const formNovaIdeia = document.getElementById('formNovaIdeia');
+if (formNovaIdeia) {
+  formNovaIdeia.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const titulo = getFieldValue('ideiaTitulo');
+    const categoria = getFieldValue('ideiaCategoria');
+    const descricao = getFieldValue('ideiaDescricao');
+    const validationErrors = [];
+
+    if (!validateLength(titulo, 3, 150)) {
+      validationErrors.push('Título da ideia deve ter entre 3 e 150 caracteres');
+    }
+    if (categoria && !validateLength(categoria, 0, 100)) {
+      validationErrors.push('Categoria deve ter no máximo 100 caracteres');
+    }
+    if (!validateLength(descricao, 10, 2000)) {
+      validationErrors.push('Descrição da ideia deve ter entre 10 e 2000 caracteres');
+    }
+
+    if (showValidationAlert(validationErrors)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/ideias/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ titulo, categoria, descricao })
+      });
+
+      const data = await readApiResponse(response);
+      const apiMessage = data?.error || data?.message || (Array.isArray(data?.errors) && data.errors.length > 0
+        ? data.errors.map(err => err.msg).join(' | ')
+        : null);
+
+      if (!response.ok) {
+        alert(apiMessage || 'Erro ao enviar ideia');
+        return;
+      }
+
+      alert(data.message || 'Ideia enviada com sucesso!');
+      formNovaIdeia.reset();
+
+      if (canViewIdeasInbox()) {
+        loadIdeias();
+      }
+    } catch (error) {
+      console.error('Erro ao enviar ideia:', error);
+      alert('Erro ao enviar ideia: ' + error.message);
+    }
+  });
+}
+
+function renderIdeiasList() {
+  const tableBody = document.getElementById('ideiasTableBody');
+  if (!tableBody) return;
+
+  if (!ideiasCache.length) {
+    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Nenhuma ideia enviada até o momento</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = ideiasCache.map(ideia => `
+    <tr>
+      <td>#${ideia.id}</td>
+      <td>
+        <strong>${ideia.titulo}</strong>
+        <div style="margin-top: 6px; color: #64748b; white-space: pre-wrap;">${ideia.descricao}</div>
+      </td>
+      <td>${ideia.categoria || '-'}</td>
+      <td>
+        ${ideia.autor_nome || ideia.autor_usuario || '-'}
+        <div style="margin-top: 4px; color: #64748b;">${ideia.autor_email || '-'}</div>
+      </td>
+      <td>${ideia.autor_departamento || '-'}</td>
+      <td>${new Date(ideia.created_at).toLocaleDateString('pt-BR')}</td>
+      <td><span class="status-badge pendente">${ideia.status || 'nova'}</span></td>
+    </tr>
+  `).join('');
+}
+
+async function loadIdeias() {
+  const tableBody = document.getElementById('ideiasTableBody');
+  if (!tableBody) return;
+
+  if (!canViewIdeasInbox()) {
+    return;
+  }
+
+  tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando...</td></tr>';
+
+  try {
+    const response = await fetch(`${API_URL}/ideias/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await readApiResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Erro ao carregar ideias');
+    }
+
+    ideiasCache = Array.isArray(data) ? data : [];
+    renderIdeiasList();
+  } catch (error) {
+    console.error('Erro ao carregar ideias:', error);
+    tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: red;">Erro ao carregar ideias: ${error.message}</td></tr>`;
   }
 }
 

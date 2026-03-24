@@ -35,6 +35,7 @@ const comunicadosRoutes = require('./routes/comunicados');
 const documentosRoutes = require('./routes/documentos');
 const funcionariosRoutes = require('./routes/funcionarios');
 const usuariosRoutes = require('./routes/usuarios');
+const ideiasRoutes = require('./routes/ideias');
 
 // Usar rotas
 app.use('/api/auth', authRoutes);
@@ -43,6 +44,7 @@ app.use('/api/comunicados', comunicadosRoutes);
 app.use('/api/documentos', documentosRoutes);
 app.use('/api/funcionarios', funcionariosRoutes);
 app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/ideias', ideiasRoutes);
 
 // Servir o frontend pelo mesmo servidor, sem impedir o uso do frontend separado
 app.use(express.static(frontendPath));
