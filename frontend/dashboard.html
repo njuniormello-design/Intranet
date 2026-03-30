@@ -465,6 +465,10 @@
             <form id="formNewUsuario">
               <div class="form-row">
                 <div class="form-group" style="flex: 1; margin-right: 10px;">
+                  <label for="usuarioNome">Nome:</label>
+                  <input type="text" id="usuarioNome" name="name" minlength="2" maxlength="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
                   <label for="usuarioLogin">Login:</label>
                   <input type="text" id="usuarioLogin" name="username" minlength="3" maxlength="30" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
@@ -474,6 +478,10 @@
                 </div>
               </div>
               <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                  <label for="usuarioNascimento">Data de nascimento:</label>
+                  <input type="date" id="usuarioNascimento" name="birth_date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
                 <div class="form-group" style="flex: 1;">
                   <label for="usuarioPerfil">Perfil:</label>
                   <select id="usuarioPerfil" name="role" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -499,6 +507,7 @@
                     <th>Login</th>
                     <th>Nome</th>
                     <th>Email</th>
+                    <th>Nascimento</th>
                     <th>Perfil</th>
                     <th>Cadastro</th>
                     <th>Ações</th>

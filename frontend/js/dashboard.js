@@ -251,6 +251,21 @@ function validateLength(value, min, max) {
   return length >= min && length <= max;
 }
 
+function formatDateToPtBr(value) {
+  if (!value) return '-';
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('pt-BR');
+}
+
+function isFutureDate(value) {
+  if (!value) return false;
+  const date = new Date(`${value}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return !Number.isNaN(date.getTime()) && date > today;
+}
+
 function setFuncionarioFormMode(mode) {
   const title = document.querySelector('#newFuncionarioForm h3');
   const submitButton = document.querySelector('#formNewFuncionario button[type="submit"]');
@@ -465,7 +480,7 @@ function displayRecentAnnouncements(comunicados) {
     <div class="announcement-item">
       <div class="announcement-header">
         <h4>${c.title}</h4>
-        <span class="announcement-badge ${c.priority}">${c.priority}</span>
+        <span class="announcement-badge ${c.priority}">${c.announcement_type === 'birthday' ? 'aniversario' : c.priority}</span>
       </div>
       <p class="announcement-content">${c.content.substring(0, 150)}...</p>
       <p class="announcement-meta">Por ${c.author_name} em ${new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
@@ -936,11 +951,11 @@ async function loadComunicados() {
       <div class="announcement-item">
         <div class="announcement-header">
           <h4>${c.title}</h4>
-          <span class="announcement-badge ${c.priority}">${c.priority}</span>
+          <span class="announcement-badge ${c.priority}">${c.announcement_type === 'birthday' ? 'aniversario' : c.priority}</span>
         </div>
         <p class="announcement-content">${c.content.length > 500 ? c.content.substring(0, 500) + '...' : c.content}</p>
         <p class="announcement-meta">Por ${c.author_name} em ${new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
-        ${canManageCatalogs() ? `
+        ${canManageCatalogs() && c.announcement_type !== 'birthday' ? `
           <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
             <button onclick="showEditComunicadoForm(${c.id})" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 8px;">Editar</button>
             <button onclick="deleteComunicado(${c.id})" class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;">Deletar</button>
@@ -1633,6 +1648,10 @@ function showNewUsuarioForm() {
   }
 
   const form = document.getElementById('newUsuarioForm');
+  const birthDateInput = document.getElementById('usuarioNascimento');
+  if (birthDateInput) {
+    birthDateInput.max = new Date().toISOString().slice(0, 10);
+  }
   syncUsuarioRoleOptions();
   if (form) form.style.display = 'block';
 }
@@ -1654,8 +1673,10 @@ if (formNewUsuario) {
       return;
     }
 
+    const name = getFieldValue('usuarioNome');
     const username = getFieldValue('usuarioLogin');
     const password = document.getElementById('usuarioSenha').value;
+    const birthDate = document.getElementById('usuarioNascimento')?.value || '';
     const role = document.getElementById('usuarioPerfil').value;
     const validationErrors = [];
 
@@ -1664,6 +1685,12 @@ if (formNewUsuario) {
     }
     if (!validateLength(password, 6, 72)) {
       validationErrors.push('Senha deve ter entre 6 e 72 caracteres');
+    }
+    if (name && !validateLength(name, 2, 100)) {
+      validationErrors.push('Nome deve ter entre 2 e 100 caracteres');
+    }
+    if (birthDate && isFutureDate(birthDate)) {
+      validationErrors.push('Data de nascimento nao pode ser futura');
     }
     const allowedRoles = getAllowedUserRoles();
     if (!allowedRoles.includes(role)) {
@@ -1675,9 +1702,11 @@ if (formNewUsuario) {
     }
 
     const payload = {
+      name,
       username,
       password,
-      role
+      role,
+      birth_date: birthDate || null
     };
 
     try {
@@ -1714,11 +1743,11 @@ async function loadUsuarios() {
   if (!tableBody) return;
 
   if (!canAccessUsers()) {
-    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
     return;
   }
 
-  tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Carregando...</td></tr>';
 
   try {
     const response = await fetch(`${API_URL}/usuarios/list`, {
@@ -1732,7 +1761,7 @@ async function loadUsuarios() {
     }
 
     if (usuarios.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
       return;
     }
 
@@ -1742,6 +1771,7 @@ async function loadUsuarios() {
         <td>${u.username}</td>
         <td>${u.name || '-'}</td>
         <td>${u.email || '-'}</td>
+        <td>${formatDateToPtBr(u.birth_date)}</td>
         <td><span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">${ROLE_LABELS[normalizeRole(u.role)] || u.role}</span></td>
         <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
         <td>
@@ -1751,7 +1781,7 @@ async function loadUsuarios() {
     `).join('');
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
-    tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
   }
 }
 

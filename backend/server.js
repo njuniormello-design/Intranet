@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const pool = require('./config/database');
 
 dotenv.config();
 
@@ -65,6 +66,57 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+async function ensureDatabaseUpdates() {
+  const connection = await pool.getConnection();
+
+  try {
+    const [birthDateColumn] = await connection.query(
+      `SELECT COLUMN_NAME
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'users'
+         AND COLUMN_NAME = 'birth_date'`
+    );
+
+    if (!birthDateColumn.length) {
+      await connection.query('ALTER TABLE users ADD COLUMN birth_date DATE NULL AFTER role');
+    }
+
+    const [announcementTypeColumn] = await connection.query(
+      `SELECT COLUMN_NAME
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'comunicados'
+         AND COLUMN_NAME = 'announcement_type'`
+    );
+
+    if (!announcementTypeColumn.length) {
+      await connection.query("ALTER TABLE comunicados ADD COLUMN announcement_type VARCHAR(50) NOT NULL DEFAULT 'manual' AFTER priority");
+    }
+
+    const [generatedKeyColumn] = await connection.query(
+      `SELECT COLUMN_NAME
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'comunicados'
+         AND COLUMN_NAME = 'generated_key'`
+    );
+
+    if (!generatedKeyColumn.length) {
+      await connection.query('ALTER TABLE comunicados ADD COLUMN generated_key VARCHAR(100) NULL AFTER announcement_type');
+      await connection.query('CREATE UNIQUE INDEX idx_comunicados_generated_key ON comunicados (generated_key)');
+    }
+  } finally {
+    connection.release();
+  }
+}
+
+ensureDatabaseUpdates()
+  .catch((error) => {
+    console.error('Erro ao aplicar atualizações do banco:', error);
+  })
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando na porta ${PORT}`);
+    });
+  });

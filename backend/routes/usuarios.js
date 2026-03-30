@@ -14,7 +14,7 @@ router.get('/list', authenticateToken, authorizeRoles('admin', 'creator'), async
   try {
     const connection = await pool.getConnection();
     const [users] = await connection.query(
-      'SELECT id, username, email, name, role, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, username, email, name, role, birth_date, created_at FROM users ORDER BY created_at DESC'
     );
     connection.release();
     res.json(users);
@@ -33,7 +33,8 @@ router.post(
     body('password').isLength({ min: 6, max: 72 }).withMessage('Senha deve ter entre 6 e 72 caracteres'),
     body('role').trim().isIn(['admin', 'creator', 'viewer']).withMessage('Perfil invalido'),
     body('email').optional().trim().isEmail().withMessage('Email invalido'),
-    body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Nome invalido')
+    body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Nome invalido'),
+    body('birth_date').optional({ values: 'falsy' }).isISO8601().withMessage('Data de nascimento invalida')
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -58,6 +59,17 @@ router.post(
       const role = requestedRole;
       const email = req.body.email ? String(req.body.email).trim().toLowerCase() : buildGeneratedEmail(username);
       const name = req.body.name ? String(req.body.name).trim() : username;
+      const birthDate = req.body.birth_date ? String(req.body.birth_date).trim() : null;
+
+      if (birthDate) {
+        const normalizedBirthDate = new Date(`${birthDate}T00:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (Number.isNaN(normalizedBirthDate.getTime()) || normalizedBirthDate > today) {
+          return res.status(400).json({ error: 'Data de nascimento invalida' });
+        }
+      }
 
       const connection = await pool.getConnection();
       const [existing] = await connection.query(
@@ -73,8 +85,8 @@ router.post(
       const hashedPassword = await bcrypt.hash(password, 10);
 
       await connection.query(
-        'INSERT INTO users (username, email, password, name, role, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-        [username, email, hashedPassword, name, role]
+        'INSERT INTO users (username, email, password, name, role, birth_date, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+        [username, email, hashedPassword, name, role, birthDate]
       );
 
       connection.release();
