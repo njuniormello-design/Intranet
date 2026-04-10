@@ -366,6 +366,31 @@ O sistema está preparado para:
 **Tempo Setup:** 30 minutos
 **Pronto para Produção:** SIM
 
+Quanto ao SLA:
+O SLA ficou baseado na prioridade do chamado e hoje está assim em chamados.js:
+
+urgente: primeiro atendimento em 15 min e solução em 240 min (4h)
+alta: primeiro atendimento em 30 min e solução em 480 min (8h)
+normal: primeiro atendimento em 120 min (2h) e solução em 1440 min (24h)
+baixa: primeiro atendimento em 240 min (4h) e solução em 2880 min (48h)
+A lógica calcula dois prazos no momento da abertura:
+
+first_response_due_at
+resolution_due_at
+Isso acontece em chamados.js e é aplicado na criação em chamados.js.
+
+Como a medição funciona:
+
+primeiro atendimento conta quando o chamado recebe técnico/status de andamento
+solução conta quando ele é concluído/encerrado
+o sistema grava se ficou dentro ou fora do SLA em sla_first_response_met e sla_resolution_met
+Isso é atualizado principalmente em:
+
+criação/atribuição inicial: chamados.js
+mudança de status: chamados.js
+fechamento completo: chamados.js
+Importante: no estado atual, o SLA está em tempo corrido, não em horário comercial. Se você quiser, eu posso mudar para considerar somente expediente, por exemplo 08:00 às 18:00 em dias úteis.
+
 ---
 
 ## CONCLUSÃO

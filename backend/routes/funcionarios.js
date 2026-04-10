@@ -38,6 +38,7 @@ const upload = multer({
 // Criar funcionário
 router.post('/criar', authenticateToken, authorizeRoles('admin', 'creator'), upload.single('foto'), [
   body('nome').trim().isLength({ min: 2, max: 100 }).withMessage('Nome deve ter entre 2 e 100 caracteres'),
+  body('re').optional({ checkFalsy: true }).matches(/^[0-9]+$/).withMessage('RE deve conter apenas números'),
   body('cargo').trim().isLength({ min: 2, max: 100 }).withMessage('Cargo deve ter entre 2 e 100 caracteres'),
   body('email').trim().isEmail().withMessage('Email inválido'),
   body('ramal').optional({ checkFalsy: true }).matches(/^[0-9()+\-\s]{3,20}$/).withMessage('Ramal inválido'),
@@ -50,6 +51,7 @@ router.post('/criar', authenticateToken, authorizeRoles('admin', 'creator'), upl
 
   try {
     const nome = String(req.body.nome || '').trim();
+    const re = String(req.body.re || '').trim();
     const cargo = String(req.body.cargo || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
     const ramal = String(req.body.ramal || '').trim();
@@ -58,9 +60,10 @@ router.post('/criar', authenticateToken, authorizeRoles('admin', 'creator'), upl
 
     // Inserir funcionário
     const result = await connection.query(
-      'INSERT INTO funcionarios (nome, cargo, email, ramal, departamento, foto_name, foto_path, foto_size, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO funcionarios (nome, re, cargo, email, ramal, departamento, foto_name, foto_path, foto_size, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         nome,
+        re || null,
         cargo,
         email,
         ramal || null,
@@ -100,7 +103,7 @@ router.get('/listar', authenticateToken, async (req, res) => {
 
     // Buscar funcionários com paginação
     const [funcionarios] = await connection.query(
-      'SELECT id, nome, cargo, ramal, email, foto_path, departamento, created_at FROM funcionarios WHERE status = "ativo" ORDER BY nome ASC LIMIT ? OFFSET ?',
+      'SELECT id, nome, re, cargo, ramal, email, foto_path, departamento, created_at FROM funcionarios WHERE status = "ativo" ORDER BY nome ASC LIMIT ? OFFSET ?',
       [limit, offset]
     );
 
@@ -153,6 +156,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Atualizar funcionário
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), upload.single('foto'), [
   body('nome').optional({ checkFalsy: true }).trim().isLength({ min: 2, max: 100 }).withMessage('Nome deve ter entre 2 e 100 caracteres'),
+  body('re').optional({ checkFalsy: true }).matches(/^[0-9]+$/).withMessage('RE deve conter apenas números'),
   body('cargo').optional({ checkFalsy: true }).trim().isLength({ min: 2, max: 100 }).withMessage('Cargo deve ter entre 2 e 100 caracteres'),
   body('email').optional({ checkFalsy: true }).trim().isEmail().withMessage('Email inválido'),
   body('ramal').optional({ checkFalsy: true }).matches(/^[0-9()+\-\s]{3,20}$/).withMessage('Ramal inválido'),
@@ -170,6 +174,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), upload
     }
 
     const nome = req.body.nome ? String(req.body.nome).trim() : null;
+    const re = req.body.re ? String(req.body.re).trim() : null;
     const cargo = req.body.cargo ? String(req.body.cargo).trim() : null;
     const email = req.body.email ? String(req.body.email).trim().toLowerCase() : null;
     const ramal = req.body.ramal ? String(req.body.ramal).trim() : null;
@@ -197,9 +202,10 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), upload
 
     // Atualizar funcionário
     await connection.query(
-      'UPDATE funcionarios SET nome = COALESCE(?, nome), cargo = COALESCE(?, cargo), email = COALESCE(?, email), ramal = COALESCE(?, ramal), departamento = COALESCE(?, departamento), foto_name = COALESCE(?, foto_name), foto_path = COALESCE(?, foto_path), foto_size = COALESCE(?, foto_size) WHERE id = ?',
+      'UPDATE funcionarios SET nome = COALESCE(?, nome), re = COALESCE(?, re), cargo = COALESCE(?, cargo), email = COALESCE(?, email), ramal = COALESCE(?, ramal), departamento = COALESCE(?, departamento), foto_name = COALESCE(?, foto_name), foto_path = COALESCE(?, foto_path), foto_size = COALESCE(?, foto_size) WHERE id = ?',
       [
         nome || null,
+        re || null,
         cargo || null,
         email || null,
         ramal || null,
@@ -260,8 +266,8 @@ router.get('/buscar/:termo', authenticateToken, async (req, res) => {
     const connection = await pool.getConnection();
 
     const [funcionarios] = await connection.query(
-      'SELECT id, nome, cargo, ramal, email, foto_path, departamento FROM funcionarios WHERE (nome LIKE ? OR email LIKE ? OR cargo LIKE ?) AND status = "ativo" ORDER BY nome ASC LIMIT 20',
-      [termo, termo, termo]
+      'SELECT id, nome, re, cargo, ramal, email, foto_path, departamento FROM funcionarios WHERE (nome LIKE ? OR email LIKE ? OR cargo LIKE ? OR re LIKE ?) AND status = "ativo" ORDER BY nome ASC LIMIT 20',
+      [termo, termo, termo, termo]
     );
 
     connection.release();

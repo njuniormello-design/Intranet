@@ -24,25 +24,25 @@
         </div>
       </div>
       <nav class="sidebar-nav">
-        <a href="#" class="nav-link active" onclick="loadPage('dashboard', event)">
+        <a href="#" class="nav-link" id="navDashboard" data-page="dashboard" onclick="loadPage('dashboard', event)">
           <span class="icon">📊</span> Dashboard
         </a>
-        <a href="#" class="nav-link" onclick="loadPage('chamados', event)">
+        <a href="#" class="nav-link active" id="navChamados" data-page="chamados" onclick="loadPage('chamados', event)">
           <span class="icon">🎫</span> Chamados
         </a>
-        <a href="#" class="nav-link" onclick="loadPage('comunicados', event)">
+        <a href="#" class="nav-link" id="navComunicados" data-page="comunicados" onclick="loadPage('comunicados', event)">
           <span class="icon">📢</span> Comunicados
         </a>
-        <a href="#" class="nav-link" onclick="loadPage('documentos', event)">
+        <a href="#" class="nav-link" id="navDocumentos" data-page="documentos" onclick="loadPage('documentos', event)">
           <span class="icon">📁</span> Documentos
         </a>
-        <a href="#" class="nav-link" onclick="loadPage('funcionarios', event)">
+        <a href="#" class="nav-link" id="navFuncionarios" data-page="funcionarios" onclick="loadPage('funcionarios', event)">
           <span class="icon">👥</span> Funcionários
         </a>
-        <a href="#" class="nav-link" onclick="loadPage('ideias', event)">
+        <a href="#" class="nav-link" id="navIdeias" data-page="ideias" onclick="loadPage('ideias', event)">
           <span class="icon">💡</span> Banco de Ideias
         </a>
-        <a href="#" class="nav-link" id="navUsuarios" onclick="loadPage('usuarios', event)">
+        <a href="#" class="nav-link" id="navUsuarios" data-page="usuarios" onclick="loadPage('usuarios', event)">
           <span class="icon">👤</span> Usuários
         </a>
       </nav>
@@ -72,7 +72,7 @@
       <!-- Content Area -->
       <div class="content-area" id="contentArea">
         <!-- Dashboard -->
-        <div id="dashboard" class="page-content">
+        <div id="dashboard" class="page-content" style="display: none;">
           <section class="quick-links-section">
             <div class="quick-links-header">
               <h2>Acessos Rápidos</h2>
@@ -197,9 +197,132 @@
                   </select>
                 </div>
               </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="chamadoRequester">Solicitante:</label>
+                  <input type="text" id="chamadoRequester" name="requester_name" minlength="2" maxlength="100" required>
+                </div>
+                <div class="form-group">
+                  <label for="chamadoDepartment">Setor/Departamento:</label>
+                  <select id="chamadoDepartment" name="department" required>
+                    <option value="">Selecione...</option>
+                    <option value="COPA">COPA</option>
+                    <option value="BANHEIROS">BANHEIROS</option>
+                    <option value="ÁREA COMUM">ÁREA COMUM</option>
+                    <option value="SALA REUNIÃO">SALA REUNIÃO</option>
+                    <option value="LICITAÇÕES">LICITAÇÕES</option>
+                    <option value="PROJETOS">PROJETOS</option>
+                    <option value="RH">RH</option>
+                    <option value="FINANCEIRO">FINANCEIRO</option>
+                    <option value="CONTABILIDADE">CONTABILIDADE</option>
+                    <option value="GOVERNANÇA">GOVERNANÇA</option>
+                    <option value="DIR. ADM">DIR. ADM</option>
+                    <option value="ASESSORIA">ASESSORIA</option>
+                    <option value="IMPRENSA">IMPRENSA</option>
+                    <option value="JURÍDICO">JURÍDICO</option>
+                    <option value="PRESIDÊNCIA">PRESIDÊNCIA</option>
+                    <option value="ESTOQUE">ESTOQUE</option>
+                    <option value="TECNOLOGIA">TECNOLOGIA</option>
+                    <option value="DIR. OPERAÇÕES">DIR. OPERAÇÕES</option>
+                    <option value="OPERAÇÕES">OPERAÇÕES</option>
+                    <option value="ESTAC. COLAB.">ESTAC. COLAB.</option>
+                    <option value="ESTAC. FROTA">ESTAC. FROTA</option>
+                    <option value="VESTIÁRIO">VESTIÁRIO</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="chamadoUnit">Unidade/Local:</label>
+                  <select id="chamadoUnit" name="unit_name" required>
+                    <option value="">Selecione...</option>
+                    <option value="Sede Administrativa">Sede Administrativa</option>
+                    <option value="Sede Operações">Sede Operações</option>
+                    <option value="Home Office">Home Office</option>
+                    <option value="Area Externa">Area Externa</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoChannel">Canal de abertura:</label>
+                  <select id="chamadoChannel" name="opening_channel" required>
+                    <option value="sistema">Sistema</option>
+                    <option value="telefone">Telefone</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="email">E-mail</option>
+                    <option value="presencial">Presencial</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="chamadoSubcategory">Subcategoria:</label>
+                  <select id="chamadoSubcategory" name="subcategory" required></select>
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoImpact">Impacto:</label>
+                  <select id="chamadoImpact" name="impact">
+                    <option value="individual" selected>Individual</option>
+                    <option value="setor">Setor</option>
+                    <option value="empresa">Empresa</option>
+                  </select>
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoSupportLevel">Suporte:</label>
+                  <select id="chamadoSupportLevel" name="support_level">
+                    <option value="N1" selected>Suporte N1</option>
+                    <option value="N2">Suporte N2</option>
+                    <option value="N3">Suporte N3</option>
+                  </select>
+                </div>
+              </div>
               <div class="form-group">
                 <label for="chamadoDescription">Descrição:</label>
-                    <textarea id="chamadoDescription" name="description" rows="5" minlength="10" maxlength="2000" required></textarea>
+                    <textarea id="chamadoDescription" name="description" rows="5" minlength="10" maxlength="3000" required></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoAssignedTo">Técnico responsável:</label>
+                  <select id="chamadoAssignedTo" name="assigned_to">
+                    <option value="">Definir depois</option>
+                  </select>
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoAssetTag">Patrimônio:</label>
+                  <input type="text" id="chamadoAssetTag" name="asset_tag" maxlength="100">
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoSerial">Número de série:</label>
+                  <input type="text" id="chamadoSerial" name="serial_number" maxlength="100">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoHostname">Hostname/Máquina:</label>
+                  <input type="text" id="chamadoHostname" name="hostname" maxlength="100">
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoIp">IP:</label>
+                  <input type="text" id="chamadoIp" name="ip_address" maxlength="45">
+                </div>
+                <div class="form-group">
+                  <label for="chamadoExtension">Ramal:</label>
+                  <input type="text" id="chamadoExtension" name="extension_number" maxlength="30">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="chamadoSystem">Sistema afetado:</label>
+                  <input type="text" id="chamadoSystem" name="affected_system" maxlength="100">
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoRecurrence">Problema recorrente?</label>
+                  <select id="chamadoRecurrence" name="recurrence_flag">
+                    <option value="0" selected>Não</option>
+                    <option value="1">Sim</option>
+                  </select>
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="chamadoRecurrenceType">Tipo de recorrência:</label>
+                  <input type="text" id="chamadoRecurrenceType" name="recurrence_type" maxlength="100" placeholder="Usuário, equipamento, setor...">
+                </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
@@ -212,9 +335,9 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="chamadoAttachments">Anexar Imagens:</label>
-                  <input type="file" id="chamadoAttachments" name="attachments" multiple accept="image/*,.pdf">
-                  <small>Máx. 5 arquivos, até 5MB cada</small>
+                  <label for="chamadoAttachments">Anexar imagens:</label>
+                  <input type="file" id="chamadoAttachments" name="attachments" multiple accept="image/*,.pdf,audio/*">
+                  <small>Máx. 8 arquivos, até 5MB cada</small>
                 </div>
               </div>
               <div style="text-align: right;">
@@ -224,16 +347,50 @@
             </form>
           </div>
 
-          <div class="form-section" style="margin-bottom: 20px;">
-            <h3>Filtrar Chamados</h3>
+          <div id="chamadoReportSection" style="display: none;">
+            <div class="dashboard-grid" style="margin-bottom: 20px;">
+              <div class="dashboard-card">
+                <h3>Abertos no filtro</h3>
+                <div class="card-number" id="reportOpenedTickets">0</div>
+                <p class="card-label">Chamados localizados</p>
+              </div>
+              <div class="dashboard-card">
+                <h3>Encerrados</h3>
+                <div class="card-number" id="reportClosedTickets">0</div>
+                <p class="card-label">Fechados no período</p>
+              </div>
+              <div class="dashboard-card">
+                <h3>Pendentes</h3>
+                <div class="card-number" id="reportPendingTickets">0</div>
+                <p class="card-label">Backlog atual</p>
+              </div>
+              <div class="dashboard-card">
+                <h3>SLA</h3>
+                <div class="card-number" id="reportSlaPercentage">0%</div>
+                <p class="card-label">Dentro do prazo</p>
+              </div>
+            </div>
+            <div class="form-section" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <h3 style="margin: 0;">Filtros e relatório</h3>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" id="btnAbrirRelatorioHtml" onclick="openChamadosReportHtml()" class="btn btn-secondary">Abrir HTML</button>
+                <button type="button" id="btnGerarRelatorioPdf" onclick="generateChamadosReportPdf()" class="btn btn-primary">Gerar PDF</button>
+                <button type="button" id="btnExportarRelatorioExcel" onclick="exportChamadosReportExcel()" class="btn btn-secondary">Exportar Excel</button>
+                <button type="button" id="btnExportarRelatorioCsv" onclick="exportChamadosReportCsv()" class="btn btn-secondary">CSV</button>
+                <button type="button" id="btnExportarRelatorioJson" onclick="exportChamadosReportJson()" class="btn btn-secondary">JSON</button>
+              </div>
+            </div>
             <div class="form-row">
               <div class="form-group" style="flex: 1;">
                 <label for="chamadoStatusFilter">Tipo:</label>
                 <select id="chamadoStatusFilter" name="statusFilter">
-                  <option value="ativos" selected>Abertos e pendentes</option>
+                  <option value="ativos" selected>Ativos</option>
                   <option value="aberto">Abertos</option>
                   <option value="pendente">Pendentes</option>
-                  <option value="fechado">Fechados</option>
+                  <option value="em_atendimento">Em andamento</option>
+                  <option value="resolvido">Concluídos</option>
+                  <option value="fechado">Fechados/cancelados</option>
                   <option value="todos">Todos</option>
                 </select>
               </div>
@@ -246,6 +403,73 @@
                 <input type="date" id="chamadoDateTo" name="dateTo">
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterDepartment">Setor:</label>
+                <input type="text" id="chamadoFilterDepartment" placeholder="Ex.: TI">
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterCategory">Categoria:</label>
+                <select id="chamadoFilterCategory"></select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterPriority">Prioridade:</label>
+                <select id="chamadoFilterPriority">
+                  <option value="">Todas</option>
+                  <option value="baixa">Baixa</option>
+                  <option value="normal">Normal</option>
+                  <option value="alta">Alta</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterChannel">Canal:</label>
+                <select id="chamadoFilterChannel">
+                  <option value="">Todos</option>
+                  <option value="sistema">Sistema</option>
+                  <option value="telefone">Telefone</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">E-mail</option>
+                  <option value="presencial">Presencial</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterSla">SLA:</label>
+                <select id="chamadoFilterSla">
+                  <option value="">Todos</option>
+                  <option value="dentro_sla">Dentro do SLA</option>
+                  <option value="fora_sla">Fora do SLA</option>
+                  <option value="em_andamento">Em andamento</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterRecurrence">Recorrência:</label>
+                <select id="chamadoFilterRecurrence">
+                  <option value="">Todos</option>
+                  <option value="sim">Recorrentes</option>
+                  <option value="nao">Não recorrentes</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterUnit">Unidade:</label>
+                <input type="text" id="chamadoFilterUnit" placeholder="Ex.: Matriz">
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterAssignedTo">Técnico:</label>
+                <select id="chamadoFilterAssignedTo">
+                  <option value="">Todos</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="chamadoFilterSearch">Busca:</label>
+                <input type="text" id="chamadoFilterSearch" placeholder="Número, título, ativo, sistema...">
+              </div>
+            </div>
+          </div>
           </div>
 
           <div class="table-section">
@@ -254,11 +478,14 @@
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Usuário</th>
+                  <th>Solicitante</th>
+                  <th>Setor</th>
                   <th>Título</th>
-                  <th>Departamento</th>
+                  <th>Categoria</th>
                   <th>Prioridade</th>
                   <th>Status</th>
+                  <th>Técnico</th>
+                  <th>SLA</th>
                   <th>Data</th>
                   <th>Ações</th>
                 </tr>
@@ -395,7 +622,7 @@
         <!-- Funcionários -->
         <div id="funcionarios" class="page-content" style="display: none;">
           <div class="page-header">
-            <h2>Gerenciamento de Funcionários</h2>
+            <h2 id="funcionariosPageHeading">Gerenciamento de Funcionários</h2>
             <button id="btnNovoFuncionario" onclick="showNewFuncionarioForm()" class="btn btn-primary">+ Novo Funcionário</button>
           </div>
 
@@ -408,12 +635,16 @@
                   <input type="text" id="funcNome" name="nome" minlength="2" maxlength="100" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 <div class="form-group" style="flex: 1;">
-                  <label for="funcCargo">Cargo:</label>
-                  <input type="text" id="funcCargo" name="cargo" minlength="2" maxlength="100" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                  <label for="funcRe">RE:</label>
+                  <input type="text" id="funcRe" name="re" maxlength="20" inputmode="numeric" pattern="[0-9]+" title="Use apenas números" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group" style="flex: 1; margin-right: 10px;">
+                  <label for="funcCargo">Cargo:</label>
+                  <input type="text" id="funcCargo" name="cargo" minlength="2" maxlength="100" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div class="form-group" style="flex: 1;">
                   <label for="funcRamal">Ramal:</label>
                   <input type="text" id="funcRamal" name="ramal" maxlength="20" pattern="[0-9()+\\-\\s]{3,20}" title="Use apenas números, espaços, parênteses, + e -" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
@@ -555,7 +786,7 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th>Número</th>
                   <th>Título</th>
                   <th>Categoria</th>
                   <th>Enviado por</th>

@@ -9,12 +9,26 @@ const ROLE_LABELS = {
   user: 'Visualizador'
 };
 
+const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'funcionarios', 'usuarios'];
+const ALL_PAGES = ['dashboard', 'chamados', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
+
 const RECENT_ANNOUNCEMENTS_LIMIT = 10;
+const DEFAULT_CHAMADO_METADATA = {
+  categories: {
+    Hardware: ['computador_nao_liga', 'lentidao', 'superaquecimento', 'monitor', 'impressora'],
+    Software: ['erro_no_sistema', 'instalacao', 'atualizacao', 'licenca'],
+    Rede: ['sem_internet', 'wifi', 'rede_local', 'vpn'],
+    Usuario: ['senha', 'permissao', 'email', 'orientacao'],
+    Telefonia: ['ramal', 'voip', 'aparelho']
+  }
+};
 let chamadosCache = [];
 let comunicadosCache = [];
 let documentosCache = [];
 let funcionariosCache = [];
 let ideiasCache = [];
+let chamadosMetadata = DEFAULT_CHAMADO_METADATA;
+let usuariosCache = [];
 let editingChamadoId = null;
 let editingChamadoData = null;
 let editingComunicadoId = null;
@@ -48,8 +62,25 @@ function isAdmin() {
   return getCurrentRole() === 'admin';
 }
 
+function getFuncionariosTitle() {
+  return isAdmin() ? 'Gerenciamento de Funcionários' : 'Relação de empregados e contatos';
+}
+
 function canViewIdeasInbox() {
   return isAdmin();
+}
+
+function syncAdminOnlyTicketFields() {
+  document.querySelectorAll('.ticket-admin-only').forEach(section => {
+    section.style.display = isAdmin() ? '' : 'none';
+    section.querySelectorAll('input, select, textarea, button').forEach(field => {
+      field.disabled = !isAdmin();
+    });
+  });
+}
+
+function isPageEnabled(page) {
+  return HOMOLOGATION_ENABLED_PAGES.includes(page);
 }
 
 function getChamadosEndpoint(filters = {}) {
@@ -59,6 +90,15 @@ function getChamadosEndpoint(filters = {}) {
   if (filters.statusGroup) params.set('statusGroup', filters.statusGroup);
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
+  if (filters.department) params.set('department', filters.department);
+  if (filters.category) params.set('category', filters.category);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.opening_channel) params.set('opening_channel', filters.opening_channel);
+  if (filters.sla_status) params.set('sla_status', filters.sla_status);
+  if (filters.recurrence) params.set('recurrence', filters.recurrence);
+  if (filters.unit_name) params.set('unit_name', filters.unit_name);
+  if (filters.assigned_to) params.set('assigned_to', filters.assigned_to);
+  if (filters.search) params.set('search', filters.search);
 
   const query = params.toString();
   return query ? `${baseUrl}?${query}` : baseUrl;
@@ -83,8 +123,8 @@ function sortChamados(chamados) {
   return [...(Array.isArray(chamados) ? chamados : [])].sort((a, b) => {
     const priorityDiff = getChamadoPriorityRank(a?.priority) - getChamadoPriorityRank(b?.priority);
     if (priorityDiff !== 0) return priorityDiff;
-    const dateA = new Date(a?.created_at || 0).getTime();
-    const dateB = new Date(b?.created_at || 0).getTime();
+    const dateA = new Date(a?.opened_at || a?.created_at || 0).getTime();
+    const dateB = new Date(b?.opened_at || b?.created_at || 0).getTime();
     return dateB - dateA;
   });
 }
@@ -93,7 +133,16 @@ function getChamadosFilterState() {
   const statusGroup = document.getElementById('chamadoStatusFilter')?.value || 'ativos';
   const from = document.getElementById('chamadoDateFrom')?.value || '';
   const to = document.getElementById('chamadoDateTo')?.value || '';
-  return { statusGroup, from, to };
+  const department = getFieldValue('chamadoFilterDepartment');
+  const category = document.getElementById('chamadoFilterCategory')?.value || '';
+  const priority = document.getElementById('chamadoFilterPriority')?.value || '';
+  const opening_channel = document.getElementById('chamadoFilterChannel')?.value || '';
+  const sla_status = document.getElementById('chamadoFilterSla')?.value || '';
+  const recurrence = document.getElementById('chamadoFilterRecurrence')?.value || '';
+  const unit_name = getFieldValue('chamadoFilterUnit');
+  const assigned_to = document.getElementById('chamadoFilterAssignedTo')?.value || '';
+  const search = getFieldValue('chamadoFilterSearch');
+  return { statusGroup, from, to, department, category, priority, opening_channel, sla_status, recurrence, unit_name, assigned_to, search };
 }
 
 function validateChamadosDateRange(from, to) {
@@ -297,8 +346,10 @@ if (!token) {
 window.addEventListener('load', async () => {
   await hydrateCurrentUser();
   renderCurrentUser();
+  await loadChamadosMetadata();
+  await loadChamadoUsers();
   applyRolePermissions();
-  loadDashboard();
+  loadPage('chamados');
 });
 
 async function hydrateCurrentUser() {
@@ -338,9 +389,24 @@ function renderCurrentUser() {
 }
 
 function applyRolePermissions() {
+  syncAdminOnlyTicketFields();
+
+  document.querySelectorAll('.nav-link[data-page]').forEach(link => {
+    const page = link.dataset.page;
+    link.style.display = isPageEnabled(page) ? '' : 'none';
+  });
+
+  ALL_PAGES.forEach(page => {
+    const pageEl = document.getElementById(page);
+    if (!pageEl) return;
+    if (!isPageEnabled(page)) {
+      pageEl.style.display = 'none';
+    }
+  });
+
   const usuariosNav = document.getElementById('navUsuarios');
   if (usuariosNav) {
-    usuariosNav.style.display = canAccessUsers() ? '' : 'none';
+    usuariosNav.style.display = isPageEnabled('usuarios') && canAccessUsers() ? '' : 'none';
   }
 
   const usuariosPage = document.getElementById('usuarios');
@@ -382,18 +448,25 @@ function applyRolePermissions() {
   if (ideiasViewerNotice) {
     ideiasViewerNotice.style.display = canViewIdeasInbox() ? 'none' : '';
   }
+
+  const chamadoReportSection = document.getElementById('chamadoReportSection');
+  if (chamadoReportSection) {
+    chamadoReportSection.style.display = isAdmin() ? '' : 'none';
+  }
 }
 
 // Carregar página
 function loadPage(page, evt) {
+  if (!isPageEnabled(page)) {
+    alert('Esta funcionalidade está temporariamente desabilitada para a homologação.');
+    return;
+  }
   if (page === 'usuarios' && !canAccessUsers()) {
     alert('Seu perfil não tem acesso a essa área.');
     return;
   }
 
-  const pages = ['dashboard', 'chamados', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
-  
-  pages.forEach(p => {
+  ALL_PAGES.forEach(p => {
     const pageEl = document.getElementById(p);
     if (pageEl) {
       pageEl.style.display = p === page ? 'block' : 'none';
@@ -404,7 +477,7 @@ function loadPage(page, evt) {
   document.querySelectorAll('.nav-link').forEach(link => {
     link.classList.remove('active');
   });
-  const navLink = evt?.target?.closest('.nav-link');
+  const navLink = evt?.target?.closest('.nav-link') || document.querySelector(`.nav-link[data-page="${page}"]`);
   if (navLink) {
     navLink.classList.add('active');
   }
@@ -415,13 +488,17 @@ function loadPage(page, evt) {
     chamados: 'Gerenciamento de Chamados',
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
-    funcionarios: 'Gerenciamento de Funcionários',
+    funcionarios: getFuncionariosTitle(),
     ideias: 'Banco de Ideias',
     usuarios: 'Cadastro de Usuários'
   };
   const pageTitleEl = document.getElementById('pageTitle');
   if (pageTitleEl) {
     pageTitleEl.textContent = titles[page] || 'Dashboard';
+  }
+  const funcionariosPageHeading = document.getElementById('funcionariosPageHeading');
+  if (funcionariosPageHeading) {
+    funcionariosPageHeading.textContent = getFuncionariosTitle();
   }
 
   // Carregar dados da página
@@ -491,30 +568,59 @@ function displayRecentAnnouncements(comunicados) {
 // ==================== CHAMADOS ====================
 function showNewChamadoForm() {
   document.getElementById('newChamadoForm').style.display = 'block';
+  const requesterField = document.getElementById('chamadoRequester');
+  const departmentField = document.getElementById('chamadoDepartment');
+  if (requesterField && !requesterField.value) {
+    requesterField.value = currentUser.name || currentUser.username || '';
+  }
+  if (departmentField && currentUser.department && [...departmentField.options].some(option => option.value === currentUser.department)) {
+    departmentField.value = currentUser.department || '';
+  }
+  syncChamadoSubcategoryOptions(document.getElementById('chamadoCategory')?.value || '');
 }
 
 function hideChamadoForm() {
   document.getElementById('newChamadoForm').style.display = 'none';
   document.getElementById('formNewChamado').reset();
+  syncChamadoSubcategoryOptions();
 }
 
 document.getElementById('formNewChamado')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const title = getFieldValue('chamadoTitle');
+  const requesterName = getFieldValue('chamadoRequester');
+  const department = getFieldValue('chamadoDepartment');
+  const unitName = getFieldValue('chamadoUnit');
+  const openingChannel = isAdmin() ? (document.getElementById('chamadoChannel')?.value || 'sistema') : 'sistema';
   const description = getFieldValue('chamadoDescription');
   const category = getFieldValue('chamadoCategory');
+  const subcategory = document.getElementById('chamadoSubcategory')?.value || '';
   const priority = getFieldValue('chamadoPriority');
+  const impact = isAdmin() ? (document.getElementById('chamadoImpact')?.value || 'individual') : 'individual';
+  const supportLevel = isAdmin() ? (document.getElementById('chamadoSupportLevel')?.value || 'N1') : 'N1';
   const validationErrors = [];
 
   if (!validateLength(title, 3, 120)) {
     validationErrors.push('Título do chamado deve ter entre 3 e 120 caracteres');
   }
-  if (!validateLength(description, 10, 2000)) {
-    validationErrors.push('Descrição do chamado deve ter entre 10 e 2000 caracteres');
+  if (!validateLength(requesterName, 2, 100)) {
+    validationErrors.push('Solicitante deve ter entre 2 e 100 caracteres');
   }
-  if (category && !validateLength(category, 1, 100)) {
-    validationErrors.push('Departamento do chamado deve ter no máximo 100 caracteres');
+  if (!validateLength(department, 2, 100)) {
+    validationErrors.push('Setor deve ter entre 2 e 100 caracteres');
+  }
+  if (!validateLength(unitName, 2, 100)) {
+    validationErrors.push('Unidade/local deve ter entre 2 e 100 caracteres');
+  }
+  if (!validateLength(description, 10, 3000)) {
+    validationErrors.push('Descrição do chamado deve ter entre 10 e 3000 caracteres');
+  }
+  if (!category) {
+    validationErrors.push('Selecione uma categoria');
+  }
+  if (!subcategory) {
+    validationErrors.push('Selecione uma subcategoria');
   }
   if (!['baixa', 'normal', 'alta', 'urgente'].includes(priority)) {
     validationErrors.push('Selecione uma prioridade válida');
@@ -526,9 +632,25 @@ document.getElementById('formNewChamado')?.addEventListener('submit', async (e) 
 
   const formData = new FormData();
   formData.append('title', title);
+  formData.append('requester_name', requesterName);
+  formData.append('department', department);
+  formData.append('unit_name', unitName);
+  formData.append('opening_channel', openingChannel);
   formData.append('description', description);
   formData.append('category', category);
+  formData.append('subcategory', subcategory);
   formData.append('priority', priority);
+  formData.append('impact', impact);
+  formData.append('support_level', supportLevel);
+  formData.append('assigned_to', isAdmin() ? (document.getElementById('chamadoAssignedTo')?.value || '') : '');
+  formData.append('asset_tag', isAdmin() ? getFieldValue('chamadoAssetTag') : '');
+  formData.append('serial_number', isAdmin() ? getFieldValue('chamadoSerial') : '');
+  formData.append('hostname', isAdmin() ? getFieldValue('chamadoHostname') : '');
+  formData.append('ip_address', isAdmin() ? getFieldValue('chamadoIp') : '');
+  formData.append('extension_number', getFieldValue('chamadoExtension'));
+  formData.append('affected_system', getFieldValue('chamadoSystem'));
+  formData.append('recurrence_flag', isAdmin() ? (document.getElementById('chamadoRecurrence')?.value || '0') : '0');
+  formData.append('recurrence_type', isAdmin() ? getFieldValue('chamadoRecurrenceType') : '');
 
   const files = document.getElementById('chamadoAttachments').files;
   for (let i = 0; i < files.length; i++) {
@@ -544,12 +666,14 @@ document.getElementById('formNewChamado')?.addEventListener('submit', async (e) 
       body: formData
     });
 
+    const data = await readApiResponse(response);
     if (response.ok) {
-      alert('Chamado criado com sucesso!');
+      alert(`Chamado criado com sucesso! ${data?.ticketNumber ? `Número: ${data.ticketNumber}` : ''}`.trim());
       hideChamadoForm();
       loadChamados();
     } else {
-      alert('Erro ao criar chamado');
+      const apiMessage = data?.error || (Array.isArray(data?.errors) ? data.errors.map(err => err.msg).join(' | ') : 'Erro ao criar chamado');
+      alert(apiMessage);
     }
   } catch (error) {
     alert('Erro ao criar chamado: ' + error.message);
@@ -567,6 +691,16 @@ document.getElementById('chamadoDateFrom')?.addEventListener('change', () => {
 document.getElementById('chamadoDateTo')?.addEventListener('change', () => {
   loadChamados();
 });
+
+document.getElementById('chamadoCategory')?.addEventListener('change', (event) => {
+  syncChamadoSubcategoryOptions(event.target.value);
+});
+
+['chamadoFilterCategory', 'chamadoFilterPriority', 'chamadoFilterChannel', 'chamadoFilterSla', 'chamadoFilterRecurrence', 'chamadoFilterAssignedTo']
+  .forEach(id => document.getElementById(id)?.addEventListener('change', () => loadChamados()));
+
+['chamadoFilterDepartment', 'chamadoFilterUnit', 'chamadoFilterSearch']
+  .forEach(id => document.getElementById(id)?.addEventListener('input', () => loadChamados()));
 
 syncChamadoDateInputs();
 
@@ -590,24 +724,29 @@ async function loadChamados() {
     const tableBody = document.getElementById('chamadosTableBody');
 
     if (chamadosCache.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum chamado encontrado</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">Nenhum chamado encontrado</td></tr>';
+      await loadChamadosSummary();
       return;
     }
 
     tableBody.innerHTML = chamadosCache.map(c => `
       <tr>
-        <td>#${c.id}</td>
-        <td>${getChamadoUserName(c)}</td>
+        <td>${c.ticket_number || `#${c.id}`}</td>
+        <td>${c.requester_name || getChamadoUserName(c)}</td>
+        <td>${c.department || '-'}</td>
         <td>${c.title}</td>
         <td>${c.category || '-'}</td>
-        <td><span class="priority-badge ${c.priority}">${c.priority}</span></td>
-        <td><span class="status-badge ${c.status}">${c.status}</span></td>
-        <td>${new Date(c.created_at).toLocaleDateString('pt-BR')}</td>
+        <td><span class="priority-badge ${c.priority}">${humanizeOptionLabel(c.priority)}</span></td>
+        <td><span class="status-badge ${c.status}">${getChamadoStatusLabel(c.status)}</span></td>
+        <td>${c.assigned_to_name || '-'}</td>
+        <td>${getChamadoSlaLabel(c)}</td>
+        <td>${new Date(c.opened_at || c.created_at).toLocaleDateString('pt-BR')}</td>
         <td>
           <button onclick="showChamadoDetails(${c.id})" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;">Ver</button>
         </td>
       </tr>
     `).join('');
+    await loadChamadosSummary();
   } catch (error) {
     console.error('Erro ao carregar chamados:', error);
   }
@@ -786,6 +925,336 @@ async function salvarEdicaoChamado(chamadoId) {
 
 function closeChamadoModal() {
   document.getElementById('chamadoModal').style.display = 'none';
+}
+
+async function uploadChamadoAdditionalImages(chamadoId) {
+  if (!isAdmin()) {
+    alert('Somente administradores podem adicionar imagens após a abertura do chamado.');
+    return;
+  }
+
+  const input = document.getElementById('editChamadoAdditionalAttachments');
+  const files = input?.files;
+  if (!files || !files.length) {
+    alert('Selecione ao menos uma imagem.');
+    return;
+  }
+
+  const formData = new FormData();
+  for (let i = 0; i < files.length; i++) {
+    formData.append('attachments', files[i]);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/chamados/${chamadoId}/attachments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    const data = await readApiResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Erro ao adicionar imagens ao chamado');
+    }
+
+    if (input) {
+      input.value = '';
+    }
+
+    alert('Imagens adicionadas com sucesso!');
+    await loadChamados();
+    await showChamadoDetails(chamadoId);
+  } catch (error) {
+    console.error('Erro ao adicionar imagens ao chamado:', error);
+    alert('Erro ao adicionar imagens ao chamado: ' + error.message);
+  }
+}
+
+async function showChamadoDetails(chamadoId) {
+  try {
+    const response = await fetch(`${API_URL}/chamados/${chamadoId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const chamado = await readApiResponse(response);
+    if (!response.ok) {
+      throw new Error(chamado?.error || 'Chamado não encontrado.');
+    }
+
+    editingChamadoData = { ...chamado };
+    const modal = document.getElementById('chamadoModal');
+    const details = document.getElementById('chamadoDetails');
+
+    const attachmentsHTML = (chamado.attachments || []).length
+      ? `
+        <h3 style="margin-top: 20px;">Anexos</h3>
+        <div style="display: grid; gap: 8px;">
+          ${chamado.attachments.map(att => `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px; background:#f5f7fb; border-radius:8px;">
+              <span>${att.file_name}</span>
+              <button onclick="downloadChamadoAttachment(${att.id}, '${att.file_name}')" class="btn btn-primary" style="padding:4px 10px; font-size:12px;">Download</button>
+            </div>
+          `).join('')}
+        </div>
+      `
+      : '';
+
+    const historyHTML = (chamado.history || []).length
+      ? `
+        <h3 style="margin-top: 20px;">Histórico</h3>
+        <div style="display: grid; gap: 8px;">
+          ${chamado.history.map(item => `
+            <div style="padding:10px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc;">
+              <strong>${humanizeOptionLabel(item.action_type)}</strong>
+              <div style="font-size:12px; color:#64748b;">${item.changed_by_name || 'Sistema'} - ${new Date(item.created_at).toLocaleString('pt-BR')}</div>
+              ${item.observation ? `<div>${item.observation}</div>` : ''}
+              ${item.from_status || item.to_status ? `<div>Status: ${getChamadoStatusLabel(item.from_status)} → ${getChamadoStatusLabel(item.to_status)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `
+      : '';
+
+    const adminTicketFields = isAdmin() ? `
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoAssignedTo">Técnico</label>
+            <select id="editChamadoAssignedTo" style="width:100%; padding:8px;">${document.getElementById('chamadoAssignedTo')?.innerHTML || '<option value=\"\">Definir depois</option>'}</select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoStatus">Status</label>
+            <select id="editChamadoStatus" style="width:100%; padding:8px;">
+              ${['triagem', 'pendente', 'em_andamento', 'concluido', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoImpact">Impacto</label>
+            <select id="editChamadoImpact" style="width:100%; padding:8px;">
+              <option value="individual" ${chamado.impact === 'individual' ? 'selected' : ''}>Individual</option>
+              <option value="setor" ${chamado.impact === 'setor' ? 'selected' : ''}>Setor</option>
+              <option value="empresa" ${chamado.impact === 'empresa' ? 'selected' : ''}>Empresa</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoSupportLevel">Suporte</label>
+            <select id="editChamadoSupportLevel" style="width:100%; padding:8px;">
+              <option value="N1" ${chamado.support_level === 'N1' ? 'selected' : ''}>Suporte N1</option>
+              <option value="N2" ${chamado.support_level === 'N2' ? 'selected' : ''}>Suporte N2</option>
+              <option value="N3" ${chamado.support_level === 'N3' ? 'selected' : ''}>Suporte N3</option>
+            </select>
+          </div>
+    ` : '';
+
+    const additionalImagesSection = isAdmin() ? `
+        <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="form-group" style="flex:1;">
+            <label for="editChamadoAdditionalAttachments">Adicionar mais imagens</label>
+            <input id="editChamadoAdditionalAttachments" type="file" accept="image/*" multiple style="width:100%; padding:8px;">
+            <small>Somente administrador pode incluir novas imagens após a abertura.</small>
+          </div>
+          <div class="form-group" style="min-width:200px;">
+            <button class="btn btn-secondary" type="button" onclick="uploadChamadoAdditionalImages(${chamado.id})" style="width:100%;">Enviar imagens</button>
+          </div>
+        </div>
+    ` : '';
+
+    const editSection = canManageCatalogs() ? `
+      <div style="margin-top: 20px; padding: 16px; border: 1px solid #dbe4f0; border-radius: 10px; background: #f8fbff;">
+        <h3 style="margin-bottom: 12px;">Tratativa e fechamento</h3>
+        <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
+          ${adminTicketFields}
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoPriority">Prioridade</label>
+            <select id="editChamadoPriority" style="width:100%; padding:8px;">
+              <option value="baixa" ${chamado.priority === 'baixa' ? 'selected' : ''}>Baixa</option>
+              <option value="normal" ${chamado.priority === 'normal' ? 'selected' : ''}>Normal</option>
+              <option value="alta" ${chamado.priority === 'alta' ? 'selected' : ''}>Alta</option>
+              <option value="urgente" ${chamado.priority === 'urgente' ? 'selected' : ''}>Urgente</option>
+            </select>
+          </div>
+        </div>
+        ${isAdmin() ? `
+          <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;">
+              <label for="editChamadoAssetTag">Patrimônio</label>
+              <input id="editChamadoAssetTag" type="text" value="${chamado.asset_tag || ''}" style="width:100%; padding:8px;">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label for="editChamadoSerial">Número de Série</label>
+              <input id="editChamadoSerial" type="text" value="${chamado.serial_number || ''}" style="width:100%; padding:8px;">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label for="editChamadoHostname">Hostname/Máquina</label>
+              <input id="editChamadoHostname" type="text" value="${chamado.hostname || ''}" style="width:100%; padding:8px;">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label for="editChamadoIp">IP</label>
+              <input id="editChamadoIp" type="text" value="${chamado.ip_address || ''}" style="width:100%; padding:8px;">
+            </div>
+          </div>
+          <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="form-group" style="flex:1; min-width:180px;">
+              <label for="editChamadoRecurrence">Problema recorrente?</label>
+              <select id="editChamadoRecurrence" style="width:100%; padding:8px;">
+                <option value="0" ${Number(chamado.recurrence_flag || 0) === 0 ? 'selected' : ''}>Não</option>
+                <option value="1" ${Number(chamado.recurrence_flag || 0) === 1 ? 'selected' : ''}>Sim</option>
+              </select>
+            </div>
+          </div>
+        ` : ''}
+        <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div class="form-group" style="flex:1;">
+            <label for="editChamadoAttendanceType">Tipo de atendimento</label>
+            <select id="editChamadoAttendanceType" style="width:100%; padding:8px;">
+              <option value="">Selecione...</option>
+              <option value="remoto" ${chamado.attendance_type === 'remoto' ? 'selected' : ''}>Remoto</option>
+              <option value="presencial" ${chamado.attendance_type === 'presencial' ? 'selected' : ''}>Presencial</option>
+              <option value="externo" ${chamado.attendance_type === 'externo' ? 'selected' : ''}>Externo</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div class="form-group" style="flex:1;">
+            <label for="editChamadoRootCause">Causa</label>
+            <textarea id="editChamadoRootCause" rows="2" style="width:100%; padding:8px;">${chamado.root_cause || ''}</textarea>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="editChamadoActionTaken">Ação executada</label>
+            <textarea id="editChamadoActionTaken" rows="2" style="width:100%; padding:8px;">${chamado.action_taken || ''}</textarea>
+          </div>
+        </div>
+        <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div class="form-group" style="flex:1;">
+            <label for="editChamadoSolutionApplied">Solução aplicada</label>
+            <textarea id="editChamadoSolutionApplied" rows="2" style="width:100%; padding:8px;">${chamado.solution_applied || ''}</textarea>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="editChamadoObservation">Observação</label>
+            <textarea id="editChamadoObservation" rows="2" style="width:100%; padding:8px;"></textarea>
+          </div>
+        </div>
+        ${additionalImagesSection}
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+          <button class="btn btn-secondary" onclick="reabrirChamado(${chamado.id})">Reabrir</button>
+          <button class="btn btn-primary" onclick="salvarEdicaoChamado(${chamado.id})">Salvar alterações</button>
+        </div>
+      </div>
+    ` : '';
+
+    details.innerHTML = `
+      <p><strong>Número:</strong> ${chamado.ticket_number || `#${chamado.id}`}</p>
+      <p><strong>Solicitante:</strong> ${chamado.requester_name || getChamadoUserName(chamado)}</p>
+      <p><strong>Setor:</strong> ${chamado.department || '-'}</p>
+      <p><strong>Unidade:</strong> ${chamado.unit_name || '-'}</p>
+      <p><strong>Canal:</strong> ${humanizeOptionLabel(chamado.opening_channel || '-')}</p>
+      <p><strong>Categoria:</strong> ${chamado.category || '-'} / ${humanizeOptionLabel(chamado.subcategory || '-')}</p>
+      <p><strong>Descrição:</strong> ${chamado.description}</p>
+      <p><strong>Impacto:</strong> ${humanizeOptionLabel(chamado.impact || '-')}</p>
+      <p><strong>Suporte:</strong> ${chamado.support_level || '-'}</p>
+      <p><strong>Prioridade:</strong> <span class="priority-badge ${chamado.priority}">${humanizeOptionLabel(chamado.priority)}</span></p>
+      <p><strong>Status:</strong> <span class="status-badge ${chamado.status}">${getChamadoStatusLabel(chamado.status)}</span></p>
+      <p><strong>SLA:</strong> ${getChamadoSlaLabel(chamado)}</p>
+      <p><strong>Técnico:</strong> ${chamado.assigned_to_name || '-'}</p>
+      <p><strong>Abertura:</strong> ${new Date(chamado.opened_at || chamado.created_at).toLocaleString('pt-BR')}</p>
+      <p><strong>Primeiro atendimento:</strong> ${chamado.first_response_at ? new Date(chamado.first_response_at).toLocaleString('pt-BR') : '-'}</p>
+      <p><strong>Encerramento:</strong> ${chamado.closed_at ? new Date(chamado.closed_at).toLocaleString('pt-BR') : '-'}</p>
+      <p><strong>Ativos vinculados:</strong> ${[chamado.asset_tag, chamado.serial_number, chamado.hostname, chamado.ip_address].filter(Boolean).join(' / ') || '-'}</p>
+      <p><strong>Sistema afetado:</strong> ${chamado.affected_system || '-'}</p>
+      <p><strong>Recorrência:</strong> ${Number(chamado.recurrence_flag || 0) === 1 ? `Sim${chamado.recurrence_type ? ` - ${chamado.recurrence_type}` : ''}` : 'Não'}</p>
+      ${attachmentsHTML}
+      ${historyHTML}
+      ${editSection}
+    `;
+
+    const editAssignedTo = document.getElementById('editChamadoAssignedTo');
+    if (editAssignedTo) {
+      editAssignedTo.value = chamado.assigned_to || '';
+    }
+    modal.style.display = 'flex';
+  } catch (error) {
+    console.error('Erro ao buscar detalhes:', error);
+    alert('Erro ao carregar detalhes do chamado: ' + error.message);
+  }
+}
+
+async function salvarEdicaoChamado(chamadoId) {
+  if (!canManageCatalogs()) {
+    alert('Seu perfil não tem permissão para editar chamados.');
+    return;
+  }
+
+  try {
+    const payload = {
+      priority: document.getElementById('editChamadoPriority')?.value || '',
+      attendance_type: document.getElementById('editChamadoAttendanceType')?.value || '',
+      root_cause: document.getElementById('editChamadoRootCause')?.value || '',
+      action_taken: document.getElementById('editChamadoActionTaken')?.value || '',
+      solution_applied: document.getElementById('editChamadoSolutionApplied')?.value || '',
+      observation: document.getElementById('editChamadoObservation')?.value || ''
+    };
+
+    if (isAdmin()) {
+      payload.assigned_to = document.getElementById('editChamadoAssignedTo')?.value || '';
+      payload.status = document.getElementById('editChamadoStatus')?.value || '';
+      payload.impact = document.getElementById('editChamadoImpact')?.value || '';
+      payload.support_level = document.getElementById('editChamadoSupportLevel')?.value || '';
+      payload.asset_tag = document.getElementById('editChamadoAssetTag')?.value || '';
+      payload.serial_number = document.getElementById('editChamadoSerial')?.value || '';
+      payload.hostname = document.getElementById('editChamadoHostname')?.value || '';
+      payload.ip_address = document.getElementById('editChamadoIp')?.value || '';
+      payload.recurrence_flag = document.getElementById('editChamadoRecurrence')?.value || '0';
+    }
+
+    const response = await fetch(`${API_URL}/chamados/${chamadoId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Erro ao atualizar chamado');
+    }
+
+    alert('Chamado atualizado com sucesso!');
+    await loadChamados();
+    await showChamadoDetails(chamadoId);
+  } catch (error) {
+    console.error('Erro ao atualizar chamado:', error);
+    alert('Erro ao atualizar chamado: ' + error.message);
+  }
+}
+
+async function reabrirChamado(chamadoId) {
+  if (!isAdmin()) {
+    alert('A reabertura do chamado é permitida somente para administradores.');
+    return;
+  }
+  const reason = prompt('Informe o motivo da reabertura do chamado:');
+  if (!reason) return;
+
+  try {
+    const response = await fetch(`${API_URL}/chamados/${chamadoId}/reopen`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ reason })
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Erro ao reabrir chamado');
+    }
+
+    alert('Chamado reaberto com sucesso!');
+    await loadChamados();
+    await showChamadoDetails(chamadoId);
+  } catch (error) {
+    alert('Erro ao reabrir chamado: ' + error.message);
+  }
 }
 
 function downloadChamadoAttachment(attachmentId, fileName) {
@@ -1276,6 +1745,7 @@ function showEditFuncionarioForm(funcionarioId) {
 
   editingFuncionarioId = funcionarioId;
   document.getElementById('funcNome').value = funcionario.nome || '';
+  document.getElementById('funcRe').value = funcionario.re || '';
   document.getElementById('funcCargo').value = funcionario.cargo || '';
   document.getElementById('funcRamal').value = funcionario.ramal || '';
   document.getElementById('funcEmail').value = funcionario.email || '';
@@ -1295,6 +1765,7 @@ if (formNewFunc) {
     e.preventDefault();
 
     const nome = getFieldValue('funcNome');
+    const re = getFieldValue('funcRe');
     const cargo = getFieldValue('funcCargo');
     const ramal = getFieldValue('funcRamal');
     const email = getFieldValue('funcEmail');
@@ -1306,6 +1777,9 @@ if (formNewFunc) {
     }
     if (!validateLength(cargo, 2, 100)) {
       validationErrors.push('Cargo deve ter entre 2 e 100 caracteres');
+    }
+    if (re && !validateNumberString(re)) {
+      validationErrors.push('RE deve conter apenas números');
     }
     if (!validateEmailFormat(email)) {
       validationErrors.push('Email inválido');
@@ -1323,6 +1797,7 @@ if (formNewFunc) {
 
     const formData = new FormData();
     formData.append('nome', nome);
+    formData.append('re', re || '');
     formData.append('cargo', cargo);
     formData.append('ramal', ramal || '');
     formData.append('email', email);
@@ -1407,6 +1882,7 @@ function renderizarGaleriaFunc(funcionarios) {
       </div>
       <div style="padding: 12px; background: white;">
         <div style="font-weight: bold; color: #333; margin-bottom: 5px; font-size: 14px; word-break: break-word;">${f.nome}</div>
+        ${f.re ? `<div style="color: #495057; font-size: 11px; margin-bottom: 5px;">RE: ${f.re}</div>` : ''}
         <div style="color: #666; font-size: 12px; margin-bottom: 5px;">${f.cargo}</div>
         ${f.departamento ? `<div style="background: #e7f3ff; color: #0056b3; padding: 3px 6px; border-radius: 3px; font-size: 10px; margin-bottom: 5px; display: inline-block;">📍 ${f.departamento}</div>` : ''}
         ${f.ramal ? `<div style="color: #999; font-size: 11px; margin-bottom: 5px; display: block;">📞 ${f.ramal}</div>` : ''}
@@ -1824,4 +2300,485 @@ window.onclick = function(event) {
   if (event.target === modal) {
     modal.style.display = 'none';
   }
+}
+
+function humanizeOptionLabel(value) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function getChamadoStatusLabel(status) {
+  const labels = {
+    aberto: 'Aberto',
+    triagem: 'Triagem',
+    pendente: 'Pendente',
+    em_atendimento: 'Em atendimento',
+    em_andamento: 'Em andamento',
+    aguardando_usuario: 'Aguardando usuário',
+    aguardando_fornecedor: 'Aguardando fornecedor',
+    pausado: 'Pausado',
+    resolvido: 'Resolvido',
+    concluido: 'Concluído',
+    encerrado: 'Encerrado',
+    cancelado: 'Cancelado',
+    reaberto: 'Reaberto'
+  };
+  return labels[status] || humanizeOptionLabel(status || '-');
+}
+
+function getChamadoSlaLabel(chamado) {
+  if (chamado?.sla_state === 'dentro_sla') return 'Dentro SLA';
+  if (chamado?.sla_state === 'fora_sla') return 'Fora SLA';
+  return 'Em andamento';
+}
+
+function buildChamadoCategoryOptions(selectId, includeEmptyLabel = 'Selecione...') {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  const categories = Object.keys(chamadosMetadata?.categories || DEFAULT_CHAMADO_METADATA.categories);
+  select.innerHTML = [
+    `<option value="">${includeEmptyLabel}</option>`,
+    ...categories.map(category => `<option value="${category}">${category}</option>`)
+  ].join('');
+}
+
+function syncChamadoSubcategoryOptions(selectedCategory = '', selectedSubcategory = '') {
+  const subcategorySelect = document.getElementById('chamadoSubcategory');
+  if (!subcategorySelect) return;
+
+  const categoryKey = selectedCategory || document.getElementById('chamadoCategory')?.value || '';
+  const subcategories = (chamadosMetadata?.categories?.[categoryKey] || []);
+  subcategorySelect.innerHTML = [
+    '<option value="">Selecione...</option>',
+    ...subcategories.map(subcategory => `<option value="${subcategory}">${humanizeOptionLabel(subcategory)}</option>`)
+  ].join('');
+
+  if (selectedSubcategory && subcategories.includes(selectedSubcategory)) {
+    subcategorySelect.value = selectedSubcategory;
+  }
+}
+
+function populateUsuariosSelects() {
+  const userOptions = usuariosCache
+    .filter(user => ['admin', 'creator'].includes(normalizeRole(user.role)))
+    .map(user => `<option value="${user.id}">${user.name || user.username}</option>`)
+    .join('');
+
+  const chamadosAssignedTo = document.getElementById('chamadoAssignedTo');
+  if (chamadosAssignedTo) {
+    chamadosAssignedTo.innerHTML = '<option value="">Definir depois</option>' + userOptions;
+  }
+
+  const chamadosFilterAssignedTo = document.getElementById('chamadoFilterAssignedTo');
+  if (chamadosFilterAssignedTo) {
+    chamadosFilterAssignedTo.innerHTML = '<option value="">Todos</option>' + userOptions;
+  }
+}
+
+async function loadChamadosMetadata() {
+  try {
+    const response = await fetch(`${API_URL}/chamados/metadata`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.ok) {
+      chamadosMetadata = await response.json();
+    }
+  } catch (error) {
+    console.error('Erro ao carregar metadados de chamados:', error);
+  }
+
+  buildChamadoCategoryOptions('chamadoCategory');
+  buildChamadoCategoryOptions('chamadoFilterCategory', 'Todas');
+  syncChamadoSubcategoryOptions();
+}
+
+async function loadChamadoUsers() {
+  if (!canManageCatalogs()) return;
+
+  try {
+    const response = await fetch(`${API_URL}/usuarios/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) return;
+    usuariosCache = await response.json();
+    if (!Array.isArray(usuariosCache)) {
+      usuariosCache = [];
+    }
+  } catch (error) {
+    console.error('Erro ao carregar técnicos:', error);
+    usuariosCache = [];
+  }
+
+  populateUsuariosSelects();
+}
+
+async function loadChamadosSummary() {
+  if (!isAdmin()) return;
+
+  const filters = getChamadosFilterState();
+  const response = await fetch(`${API_URL}/chamados/summary?${new URLSearchParams(filters).toString()}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) return;
+
+  const data = await response.json();
+  document.getElementById('reportOpenedTickets').textContent = data?.totals?.opened || 0;
+  document.getElementById('reportClosedTickets').textContent = data?.totals?.closed || 0;
+  document.getElementById('reportPendingTickets').textContent = data?.totals?.pending || 0;
+  document.getElementById('reportSlaPercentage').textContent = `${Number(data?.sla?.withinPercentage || 0).toFixed(0)}%`;
+}
+
+function generateChamadosReportPdf() {
+  if (!isAdmin()) {
+    alert('A geração do relatório de chamados é permitida somente para administradores.');
+    return;
+  }
+
+  const filters = getChamadosFilterState();
+  const appliedFilters = [
+    ['Status', filters.statusGroup || 'todos'],
+    ['Período', filters.from || filters.to ? `${filters.from || '...'} até ${filters.to || '...'}` : 'Todos'],
+    ['Setor', filters.department || 'Todos'],
+    ['Categoria', filters.category || 'Todas'],
+    ['Prioridade', filters.priority || 'Todas'],
+    ['Canal', filters.opening_channel || 'Todos'],
+    ['SLA', filters.sla_status || 'Todos'],
+    ['Recorrência', filters.recurrence || 'Todos'],
+    ['Unidade', filters.unit_name || 'Todas'],
+    ['Técnico', document.getElementById('chamadoFilterAssignedTo')?.selectedOptions?.[0]?.textContent || 'Todos'],
+    ['Busca', filters.search || '-']
+  ];
+
+  const summary = {
+    opened: document.getElementById('reportOpenedTickets')?.textContent || '0',
+    closed: document.getElementById('reportClosedTickets')?.textContent || '0',
+    pending: document.getElementById('reportPendingTickets')?.textContent || '0',
+    sla: document.getElementById('reportSlaPercentage')?.textContent || '0%'
+  };
+
+  const rows = chamadosCache.map(chamado => `
+    <tr>
+      <td>${chamado.ticket_number || `#${chamado.id}`}</td>
+      <td>${chamado.requester_name || getChamadoUserName(chamado)}</td>
+      <td>${chamado.department || '-'}</td>
+      <td>${chamado.title}</td>
+      <td>${chamado.category || '-'}</td>
+      <td>${humanizeOptionLabel(chamado.priority)}</td>
+      <td>${getChamadoStatusLabel(chamado.status)}</td>
+      <td>${chamado.assigned_to_name || '-'}</td>
+      <td>${getChamadoSlaLabel(chamado)}</td>
+      <td>${new Date(chamado.opened_at || chamado.created_at).toLocaleDateString('pt-BR')}</td>
+    </tr>
+  `).join('');
+
+  const reportWindow = window.open('', '_blank', 'width=1200,height=800');
+  if (!reportWindow) {
+    alert('Não foi possível abrir a janela de impressão.');
+    return;
+  }
+
+  reportWindow.document.write(`
+    <html lang="pt-BR">
+      <head>
+        <title>Relatório de Chamados</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+          h1, h2 { margin: 0 0 12px; }
+          .meta, .summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; margin-bottom: 20px; }
+          .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+          .card { border: 1px solid #d1d5db; border-radius: 10px; padding: 12px; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
+          th { background: #f3f4f6; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>Relatório de Chamados</h1>
+        <p>Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+        <div class="cards">
+          <div class="card"><strong>Abertos</strong><div>${summary.opened}</div></div>
+          <div class="card"><strong>Encerrados</strong><div>${summary.closed}</div></div>
+          <div class="card"><strong>Pendentes</strong><div>${summary.pending}</div></div>
+          <div class="card"><strong>SLA</strong><div>${summary.sla}</div></div>
+        </div>
+        <h2>Filtros aplicados</h2>
+        <div class="meta">
+          ${appliedFilters.map(([label, value]) => `<div><strong>${label}:</strong> ${value}</div>`).join('')}
+        </div>
+        <h2>Chamados</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Solicitante</th>
+              <th>Setor</th>
+              <th>Título</th>
+              <th>Categoria</th>
+              <th>Prioridade</th>
+              <th>Status</th>
+              <th>Técnico</th>
+              <th>SLA</th>
+              <th>Abertura</th>
+            </tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="10">Nenhum chamado encontrado.</td></tr>'}</tbody>
+        </table>
+      </body>
+    </html>
+  `);
+  reportWindow.document.close();
+  reportWindow.focus();
+  reportWindow.print();
+}
+
+function ensureChamadosReportAccess() {
+  if (!isAdmin()) {
+    alert('A geração do relatório de chamados é permitida somente para administradores.');
+    return false;
+  }
+  return true;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getChamadosReportFileStamp() {
+  return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+}
+
+function getChamadosReportAppliedFilters() {
+  const filters = getChamadosFilterState();
+  return [
+    ['Status', filters.statusGroup || 'todos'],
+    ['Período', filters.from || filters.to ? `${filters.from || '...'} até ${filters.to || '...'}` : 'Todos'],
+    ['Setor', filters.department || 'Todos'],
+    ['Categoria', filters.category || 'Todas'],
+    ['Prioridade', filters.priority || 'Todas'],
+    ['Canal', filters.opening_channel || 'Todos'],
+    ['SLA', filters.sla_status || 'Todos'],
+    ['Recorrência', filters.recurrence || 'Todos'],
+    ['Unidade', filters.unit_name || 'Todas'],
+    ['Técnico', document.getElementById('chamadoFilterAssignedTo')?.selectedOptions?.[0]?.textContent || 'Todos'],
+    ['Busca', filters.search || '-']
+  ];
+}
+
+function getChamadosReportSummary() {
+  return {
+    opened: document.getElementById('reportOpenedTickets')?.textContent || '0',
+    closed: document.getElementById('reportClosedTickets')?.textContent || '0',
+    pending: document.getElementById('reportPendingTickets')?.textContent || '0',
+    sla: document.getElementById('reportSlaPercentage')?.textContent || '0%'
+  };
+}
+
+function getChamadosReportRows() {
+  return chamadosCache.map(chamado => ({
+    numero: chamado.ticket_number || `#${chamado.id}`,
+    solicitante: chamado.requester_name || getChamadoUserName(chamado),
+    setor: chamado.department || '-',
+    titulo: chamado.title || '-',
+    categoria: chamado.category || '-',
+    prioridade: humanizeOptionLabel(chamado.priority),
+    status: getChamadoStatusLabel(chamado.status),
+    tecnico: chamado.assigned_to_name || '-',
+    sla: getChamadoSlaLabel(chamado),
+    abertura: new Date(chamado.opened_at || chamado.created_at).toLocaleDateString('pt-BR')
+  }));
+}
+
+function buildChamadosReportDocument() {
+  const generatedAt = new Date().toLocaleString('pt-BR');
+  const appliedFilters = getChamadosReportAppliedFilters();
+  const summary = getChamadosReportSummary();
+  const rows = getChamadosReportRows();
+  const rowsHtml = rows.map(row => `
+    <tr>
+      <td>${escapeHtml(row.numero)}</td>
+      <td>${escapeHtml(row.solicitante)}</td>
+      <td>${escapeHtml(row.setor)}</td>
+      <td>${escapeHtml(row.titulo)}</td>
+      <td>${escapeHtml(row.categoria)}</td>
+      <td>${escapeHtml(row.prioridade)}</td>
+      <td>${escapeHtml(row.status)}</td>
+      <td>${escapeHtml(row.tecnico)}</td>
+      <td>${escapeHtml(row.sla)}</td>
+      <td>${escapeHtml(row.abertura)}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <title>Relatório de Chamados</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #111827; background: #f8fafc; }
+          .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+          .toolbar button { border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
+          .toolbar .primary { background:#0d6efd; color:#fff; }
+          .toolbar .secondary { background:#e5e7eb; color:#111827; }
+          .sheet { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(15,23,42,0.08); }
+          h1, h2 { margin: 0 0 12px; }
+          p { margin: 0 0 16px; color:#475569; }
+          .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; margin-bottom: 20px; }
+          .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+          .card { border: 1px solid #d1d5db; border-radius: 10px; padding: 12px; background:#f8fafc; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
+          th { background: #f3f4f6; }
+          @media print {
+            body { padding: 0; background:#fff; }
+            .toolbar { display:none; }
+            .sheet { box-shadow:none; border-radius:0; padding:0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar">
+          <button class="primary" onclick="window.print()">Imprimir / Salvar PDF</button>
+          <button class="secondary" onclick="window.__saveReportHtml()">Salvar HTML</button>
+        </div>
+        <div class="sheet">
+          <h1>Relatório de Chamados</h1>
+          <p>Gerado em ${escapeHtml(generatedAt)}</p>
+          <div class="cards">
+            <div class="card"><strong>Abertos</strong><div>${escapeHtml(summary.opened)}</div></div>
+            <div class="card"><strong>Encerrados</strong><div>${escapeHtml(summary.closed)}</div></div>
+            <div class="card"><strong>Pendentes</strong><div>${escapeHtml(summary.pending)}</div></div>
+            <div class="card"><strong>SLA</strong><div>${escapeHtml(summary.sla)}</div></div>
+          </div>
+          <h2>Filtros aplicados</h2>
+          <div class="meta">
+            ${appliedFilters.map(([label, value]) => `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</div>`).join('')}
+          </div>
+          <h2>Chamados</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Número</th>
+                <th>Solicitante</th>
+                <th>Setor</th>
+                <th>Título</th>
+                <th>Categoria</th>
+                <th>Prioridade</th>
+                <th>Status</th>
+                <th>Técnico</th>
+                <th>SLA</th>
+                <th>Abertura</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml || '<tr><td colspan="10">Nenhum chamado encontrado.</td></tr>'}</tbody>
+          </table>
+        </div>
+        <script>
+          window.__saveReportHtml = function () {
+            const blob = new Blob([document.documentElement.outerHTML], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'relatorio-chamados-${getChamadosReportFileStamp()}.html';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  return { html, summary, appliedFilters, rows };
+}
+
+function downloadChamadosReportFile(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+function openChamadosReportHtml(printOnOpen = false) {
+  if (!ensureChamadosReportAccess()) return;
+
+  const reportWindow = window.open('', '_blank', 'width=1400,height=900');
+  if (!reportWindow) {
+    alert('Não foi possível abrir a janela do relatório.');
+    return;
+  }
+
+  const { html } = buildChamadosReportDocument();
+  reportWindow.document.write(html);
+  reportWindow.document.close();
+  reportWindow.focus();
+
+  if (printOnOpen) {
+    reportWindow.onload = () => {
+      reportWindow.focus();
+      reportWindow.print();
+    };
+  }
+}
+
+function generateChamadosReportPdf() {
+  openChamadosReportHtml(true);
+}
+
+function exportChamadosReportExcel() {
+  if (!ensureChamadosReportAccess()) return;
+  const { html } = buildChamadosReportDocument();
+  downloadChamadosReportFile(html, `relatorio-chamados-${getChamadosReportFileStamp()}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+}
+
+function exportChamadosReportCsv() {
+  if (!ensureChamadosReportAccess()) return;
+
+  const headers = ['Numero', 'Solicitante', 'Setor', 'Titulo', 'Categoria', 'Prioridade', 'Status', 'Tecnico', 'SLA', 'Abertura'];
+  const rows = getChamadosReportRows();
+  const escapeCsvValue = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const csv = [
+    headers.join(';'),
+    ...rows.map(row => [
+      row.numero,
+      row.solicitante,
+      row.setor,
+      row.titulo,
+      row.categoria,
+      row.prioridade,
+      row.status,
+      row.tecnico,
+      row.sla,
+      row.abertura
+    ].map(escapeCsvValue).join(';'))
+  ].join('\n');
+
+  downloadChamadosReportFile(`\uFEFF${csv}`, `relatorio-chamados-${getChamadosReportFileStamp()}.csv`, 'text/csv;charset=utf-8');
+}
+
+function exportChamadosReportJson() {
+  if (!ensureChamadosReportAccess()) return;
+
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    filters: Object.fromEntries(getChamadosReportAppliedFilters()),
+    summary: getChamadosReportSummary(),
+    chamados: getChamadosReportRows()
+  };
+
+  downloadChamadosReportFile(JSON.stringify(payload, null, 2), `relatorio-chamados-${getChamadosReportFileStamp()}.json`, 'application/json;charset=utf-8');
 }
