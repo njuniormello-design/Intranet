@@ -133,7 +133,7 @@ function sortChamados(chamados) {
 }
 
 function getChamadosFilterState() {
-  const statusGroup = document.getElementById('chamadoStatusFilter')?.value || 'todos';
+  const statusGroup = document.getElementById('chamadoStatusFilter')?.value || 'ativos';
   const from = document.getElementById('chamadoDateFrom')?.value || '';
   const to = document.getElementById('chamadoDateTo')?.value || '';
   const department = getFieldValue('chamadoFilterDepartment');
