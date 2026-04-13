@@ -1,4 +1,7 @@
-const API_URL = 'http://localhost:5000/api';
+const API_URL =
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : 'http://10.0.1.206:5000/api';
 let token = localStorage.getItem('token');
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null') || {};
 
@@ -1896,7 +1899,11 @@ function renderizarGaleriaFunc(funcionarios) {
   console.log('Renderizando funcionários:', funcionarios);
 
   container.innerHTML = funcionarios.map(f => {
-    const fotoUrl = f.foto_path ? `http://localhost:5000${f.foto_path}` : null;
+    const fotoUrl = f.foto_path
+  ? `${window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5000'
+      : 'http://10.0.1.206:5000'}${f.foto_path}`
+  : null;
     console.log(`Foto de ${f.nome}:`, fotoUrl);
     
     return `
