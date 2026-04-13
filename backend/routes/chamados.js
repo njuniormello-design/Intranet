@@ -13,15 +13,16 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const CHAMADO_STATUSES = [
-  'aberto',
   'triagem',
-  'pendente',
+  'aberto',
   'em_atendimento',
-  'em_andamento',
   'aguardando_usuario',
   'aguardando_fornecedor',
-  'pausado',
   'resolvido',
+  'fechado',
+  'pendente',
+  'em_andamento',
+  'pausado',
   'concluido',
   'encerrado',
   'cancelado',
@@ -29,23 +30,28 @@ const CHAMADO_STATUSES = [
 ];
 
 const CHAMADO_STATUS_GROUPS = {
-  ativos: ['aberto', 'triagem', 'pendente', 'em_atendimento', 'em_andamento', 'aguardando_usuario', 'aguardando_fornecedor', 'pausado', 'resolvido', 'reaberto'],
+  ativos: ['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'reaberto', 'pendente', 'em_andamento', 'pausado'],
   aberto: ['aberto', 'triagem'],
-  pendente: ['pendente', 'aguardando_usuario', 'aguardando_fornecedor', 'pausado'],
+  pendente: ['aguardando_usuario', 'aguardando_fornecedor', 'pendente', 'pausado'],
   em_atendimento: ['em_atendimento', 'em_andamento'],
   resolvido: ['resolvido', 'concluido'],
-  fechado: ['concluido', 'encerrado', 'cancelado'],
+  fechado: ['fechado', 'concluido', 'encerrado', 'cancelado'],
   todos: CHAMADO_STATUSES
 };
 
 const PRIORITIES = ['baixa', 'normal', 'alta', 'urgente'];
 const IMPACTS = ['individual', 'setor', 'empresa'];
+const URGENCIES = ['baixa', 'media', 'alta', 'critica'];
 const OPENING_CHANNELS = ['telefone', 'whatsapp', 'email', 'presencial', 'sistema'];
 const SUPPORT_LEVELS = ['N1', 'N2', 'N3'];
 const ATTENDANCE_TYPES = ['remoto', 'presencial', 'externo'];
 const SOLUTION_TYPES = ['definitiva', 'paliativa'];
-const CLOSED_STATUSES = ['concluido', 'encerrado', 'cancelado'];
-const IN_PROGRESS_STATUSES = ['em_atendimento', 'em_andamento', 'resolvido', 'concluido', 'encerrado'];
+const RESOLVED_STATUSES = ['resolvido'];
+const CLOSED_STATUSES = ['fechado', 'concluido', 'encerrado', 'cancelado'];
+const FIRST_RESPONSE_STATUSES = ['triagem', 'em_atendimento', 'em_andamento', 'resolvido', 'fechado', 'concluido', 'encerrado'];
+const SERVICE_STARTED_STATUSES = ['em_atendimento', 'em_andamento', 'resolvido', 'fechado', 'concluido', 'encerrado'];
+const SLA_PAUSED_STATUSES = ['aguardando_usuario', 'aguardando_fornecedor', 'pausado'];
+const SLA_STOPPED_STATUSES = ['triagem', ...SLA_PAUSED_STATUSES];
 const PRIORITY_ORDER = ['urgente', 'alta', 'normal', 'baixa'];
 const BUSINESS_START_HOUR = 8;
 const BUSINESS_END_HOUR = 18;
@@ -76,8 +82,8 @@ const ALLOWED_DEPARTMENTS = [
 ];
 
 const SLA_BY_PRIORITY = {
-  urgente: { firstResponseMinutes: 15, resolutionMinutes: 240 },
-  alta: { firstResponseMinutes: 30, resolutionMinutes: 480 },
+  urgente: { firstResponseMinutes: 30, resolutionMinutes: 240 },
+  alta: { firstResponseMinutes: 60, resolutionMinutes: 480 },
   normal: { firstResponseMinutes: 120, resolutionMinutes: 1440 },
   baixa: { firstResponseMinutes: 240, resolutionMinutes: 2880 }
 };
@@ -115,6 +121,7 @@ const createValidators = [
   body('subcategory').trim().isLength({ min: 2, max: 100 }).withMessage('Subcategoria invalida'),
   body('priority').isIn(PRIORITIES).withMessage('Prioridade invalida'),
   body('impact').optional({ checkFalsy: true }).isIn(IMPACTS).withMessage('Impacto invalido'),
+  body('urgency').optional({ checkFalsy: true }).isIn(URGENCIES).withMessage('Urgencia invalida'),
   body('support_level').optional({ checkFalsy: true }).isIn(SUPPORT_LEVELS).withMessage('Nivel de suporte invalido'),
   body('asset_tag').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Patrimonio invalido'),
   body('serial_number').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('Numero de serie invalido'),
@@ -234,10 +241,104 @@ function getSlaFlag(referenceDate, dueDate) {
   return new Date(referenceDate).getTime() <= new Date(dueDate).getTime() ? 1 : 0;
 }
 
+function secondsBetween(startDate, endDate = new Date()) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
+  return Math.floor((end - start) / 1000);
+}
+
+function getTotalPausedSeconds(chamado, referenceDate = new Date()) {
+  const savedPause = Math.max(0, Number(chamado?.paused_seconds) || 0);
+  if (!chamado?.sla_paused_at || !SLA_STOPPED_STATUSES.includes(chamado.status)) {
+    return savedPause;
+  }
+  return savedPause + secondsBetween(chamado.sla_paused_at, referenceDate);
+}
+
+function getSlaFlagWithPause(referenceDate, dueDate, chamado = null) {
+  if (!referenceDate || !dueDate) return null;
+  const pausedSeconds = getTotalPausedSeconds(chamado, referenceDate);
+  const adjustedDueDate = new Date(new Date(dueDate).getTime() + pausedSeconds * 1000);
+  return getSlaFlag(referenceDate, adjustedDueDate);
+}
+
 function getFinalSlaState(chamado) {
   if (chamado.sla_resolution_met === 1) return 'dentro_sla';
   if (chamado.sla_resolution_met === 0) return 'fora_sla';
   return 'em_andamento';
+}
+
+function addStatusTimingUpdates({ chamado, nextStatus, updateFields, updateValues, now, userId, pauseReason }) {
+  const wasPaused = SLA_STOPPED_STATUSES.includes(chamado.status);
+  const willPause = SLA_STOPPED_STATUSES.includes(nextStatus);
+  const statusChanged = chamado.status !== nextStatus;
+  const shouldCloseCurrentPause = wasPaused && (!willPause || statusChanged);
+  const pauseSeconds = shouldCloseCurrentPause ? secondsBetween(chamado.sla_paused_at, now) : 0;
+
+  if (pauseSeconds > 0) {
+    updateFields.push('paused_seconds = COALESCE(paused_seconds, 0) + ?');
+    updateValues.push(pauseSeconds);
+
+    if (chamado.status === 'aguardando_usuario') {
+      updateFields.push('waiting_user_seconds = COALESCE(waiting_user_seconds, 0) + ?');
+      updateValues.push(pauseSeconds);
+    }
+
+    if (chamado.status === 'aguardando_fornecedor' || chamado.status === 'pausado') {
+      updateFields.push('waiting_vendor_seconds = COALESCE(waiting_vendor_seconds, 0) + ?');
+      updateValues.push(pauseSeconds);
+    }
+  }
+
+  if (willPause) {
+    if (!chamado.sla_paused_at || statusChanged) {
+      updateFields.push('sla_paused_at = ?');
+      updateValues.push(toSqlDateTime(now));
+    }
+    updateFields.push('sla_pause_reason = ?');
+    updateValues.push(pauseReason || null);
+  } else if (wasPaused || chamado.sla_paused_at) {
+    updateFields.push('sla_paused_at = NULL');
+    updateFields.push('sla_pause_reason = NULL');
+  }
+
+  if (!chamado.first_response_at && FIRST_RESPONSE_STATUSES.includes(nextStatus)) {
+    updateFields.push('first_response_at = ?');
+    updateValues.push(toSqlDateTime(now));
+    updateFields.push('sla_first_response_met = ?');
+    updateValues.push(getSlaFlagWithPause(now, chamado.first_response_due_at, chamado));
+  }
+
+  if (!chamado.service_started_at && SERVICE_STARTED_STATUSES.includes(nextStatus)) {
+    updateFields.push('service_started_at = ?');
+    updateValues.push(toSqlDateTime(now));
+  }
+
+  if (!chamado.resolved_at && RESOLVED_STATUSES.includes(nextStatus)) {
+    updateFields.push('resolved_at = ?');
+    updateValues.push(toSqlDateTime(now));
+    updateFields.push('resolved_by = ?');
+    updateValues.push(userId);
+    updateFields.push('sla_resolution_met = ?');
+    updateValues.push(getSlaFlagWithPause(now, chamado.resolution_due_at, chamado));
+  }
+
+  if (CLOSED_STATUSES.includes(nextStatus)) {
+    if (!chamado.resolved_at) {
+      updateFields.push('resolved_at = ?');
+      updateValues.push(toSqlDateTime(now));
+      updateFields.push('sla_resolution_met = ?');
+      updateValues.push(getSlaFlagWithPause(now, chamado.resolution_due_at, chamado));
+    }
+    updateFields.push('closed_at = ?');
+    updateValues.push(toSqlDateTime(now));
+    updateFields.push('final_status = ?');
+    updateValues.push(nextStatus);
+    updateFields.push('resolved_by = ?');
+    updateValues.push(userId);
+  }
 }
 
 function buildTicketNumber(insertId) {
@@ -483,6 +584,7 @@ router.get('/metadata', authenticateToken, (req, res) => {
     statuses: CHAMADO_STATUSES,
     priorities: PRIORITIES,
     impacts: IMPACTS,
+    urgencies: URGENCIES,
     openingChannels: OPENING_CHANNELS,
     supportLevels: SUPPORT_LEVELS,
     attendanceTypes: ATTENDANCE_TYPES,
@@ -513,7 +615,8 @@ router.post('/create', authenticateToken, upload.array('attachments', 8), create
     const isAdminRequest = isAdminUser(req.user);
     const openedAt = new Date();
     const priority = normalizeString(req.body.priority, 50) || 'normal';
-    const impact = isAdminRequest ? (normalizeString(req.body.impact, 50) || 'individual') : 'individual';
+    const impact = normalizeString(req.body.impact, 50) || 'individual';
+    const urgency = normalizeString(req.body.urgency, 50) || 'media';
     const openingChannel = isAdminRequest ? (normalizeString(req.body.opening_channel, 30) || 'sistema') : 'sistema';
     const supportLevel = isAdminRequest ? (normalizeString(req.body.support_level, 10) || 'N1') : 'N1';
     const requesterName = normalizeString(req.body.requester_name, 100) || req.user.name || req.user.username;
@@ -528,11 +631,11 @@ router.post('/create', authenticateToken, upload.array('attachments', 8), create
     const [result] = await connection.query(
       `INSERT INTO chamados (
          user_id, requester_name, department, unit_name, opening_channel, title, description,
-         priority, impact, support_level, category, subcategory, assigned_to, status, opened_at,
+         priority, impact, urgency, support_level, category, subcategory, assigned_to, status, opened_at,
          first_response_due_at, resolution_due_at, recurrence_flag, recurrence_type,
          asset_tag, serial_number, hostname, ip_address, extension_number, affected_system,
          created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         req.user.id,
         requesterName,
@@ -543,11 +646,12 @@ router.post('/create', authenticateToken, upload.array('attachments', 8), create
         normalizeString(req.body.description, 3000),
         priority,
         impact,
+        urgency,
         supportLevel,
         normalizeString(req.body.category, 100),
         normalizeString(req.body.subcategory, 100),
         sanitizedAssignedTo,
-        sanitizedAssignedTo ? 'em_andamento' : 'triagem',
+        sanitizedAssignedTo ? 'em_atendimento' : 'aberto',
         toSqlDateTime(firstResponseDueAt),
         toSqlDateTime(resolutionDueAt),
         recurrenceFlag,
@@ -570,9 +674,10 @@ router.post('/create', authenticateToken, upload.array('attachments', 8), create
       `UPDATE chamados
           SET ticket_number = ?,
               first_response_at = ?,
+              service_started_at = ?,
               sla_first_response_met = ?
         WHERE id = ?`,
-      [ticketNumber, toSqlDateTime(firstResponseAt), firstResponseMet, chamadoId]
+      [ticketNumber, toSqlDateTime(firstResponseAt), toSqlDateTime(firstResponseAt), firstResponseMet, chamadoId]
     );
 
     if (req.files?.length) {
@@ -587,7 +692,7 @@ router.post('/create', authenticateToken, upload.array('attachments', 8), create
     }
 
     await recordHistory(connection, chamadoId, req.user.id, 'abertura', {
-      toStatus: sanitizedAssignedTo ? 'em_andamento' : 'triagem',
+      toStatus: sanitizedAssignedTo ? 'em_atendimento' : 'aberto',
       observation: 'Chamado criado'
     });
 
@@ -624,8 +729,8 @@ router.get('/summary', authenticateToken, authorizeRoles('admin'), async (req, r
       .map(chamado => (new Date(chamado.first_response_at).getTime() - new Date(chamado.opened_at).getTime()) / 60000);
 
     const resolutionValues = chamados
-      .filter(chamado => chamado.closed_at && chamado.opened_at)
-      .map(chamado => (new Date(chamado.closed_at).getTime() - new Date(chamado.opened_at).getTime()) / 60000);
+      .filter(chamado => (chamado.resolved_at || chamado.closed_at) && chamado.opened_at)
+      .map(chamado => (new Date(chamado.resolved_at || chamado.closed_at).getTime() - new Date(chamado.opened_at).getTime()) / 60000);
 
     const slaMeasured = chamados.filter(chamado => chamado.sla_resolution_met !== null);
     const slaWithin = slaMeasured.filter(chamado => chamado.sla_resolution_met === 1).length;
@@ -833,7 +938,8 @@ router.post('/:id/attachments', authenticateToken, authorizeRoles('admin'), uplo
 
 router.put('/:id/status', authenticateToken, authorizeRoles('admin'), [
   body('status').isIn(CHAMADO_STATUSES).withMessage('Status invalido'),
-  body('observation').optional({ checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Observacao invalida')
+  body('observation').optional({ checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Observacao invalida'),
+  body('sla_pause_reason').optional({ checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Motivo de pausa invalido')
 ], async (req, res) => {
   let connection;
   try {
@@ -853,24 +959,13 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin'), [
     const updateFields = ['status = ?', 'updated_at = NOW()'];
     const updateValues = [nextStatus];
     const now = new Date();
-
-    if (!chamado.first_response_at && (IN_PROGRESS_STATUSES.includes(nextStatus) || Number(req.body.assigned_to) > 0)) {
-      updateFields.push('first_response_at = ?');
-      updateValues.push(toSqlDateTime(now));
-      updateFields.push('sla_first_response_met = ?');
-      updateValues.push(getSlaFlag(now, chamado.first_response_due_at));
+    const pauseReason = normalizeString(req.body.sla_pause_reason, 500) || normalizeString(req.body.observation, 500);
+    if (SLA_PAUSED_STATUSES.includes(nextStatus) && !pauseReason) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Informe o motivo de pausa do SLA' });
     }
 
-    if (CLOSED_STATUSES.includes(nextStatus)) {
-      updateFields.push('closed_at = ?');
-      updateValues.push(toSqlDateTime(now));
-      updateFields.push('final_status = ?');
-      updateValues.push(nextStatus);
-      updateFields.push('resolved_by = ?');
-      updateValues.push(req.user.id);
-      updateFields.push('sla_resolution_met = ?');
-      updateValues.push(getSlaFlag(now, chamado.resolution_due_at));
-    }
+    addStatusTimingUpdates({ chamado, nextStatus, updateFields, updateValues, now, userId: req.user.id, pauseReason });
 
     updateValues.push(chamadoId);
 
@@ -917,8 +1012,11 @@ router.post('/:id/reopen', authenticateToken, authorizeRoles('admin'), [
       `UPDATE chamados
           SET status = 'reaberto',
               closed_at = NULL,
+              resolved_at = NULL,
               resolved_by = NULL,
               final_status = NULL,
+              sla_paused_at = NULL,
+              sla_pause_reason = NULL,
               last_reopen_reason = ?,
               reopen_count = COALESCE(reopen_count, 0) + 1,
               updated_at = NOW()
@@ -970,6 +1068,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async 
       subcategory: normalizeString(req.body.subcategory, 100),
       priority: normalizeString(req.body.priority, 50),
       impact: normalizeString(req.body.impact, 50),
+      urgency: normalizeString(req.body.urgency, 50),
       support_level: normalizeString(req.body.support_level, 10),
       attendance_type: normalizeString(req.body.attendance_type, 30),
       root_cause: normalizeString(req.body.root_cause, 500),
@@ -1007,6 +1106,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async 
       if (value === null) return;
       if (column === 'priority' && !PRIORITIES.includes(value)) return;
       if (column === 'impact' && !IMPACTS.includes(value)) return;
+      if (column === 'urgency' && !URGENCIES.includes(value)) return;
       if (column === 'opening_channel' && !OPENING_CHANNELS.includes(value)) return;
       if (column === 'support_level' && !SUPPORT_LEVELS.includes(value)) return;
       if (column === 'attendance_type' && !ATTENDANCE_TYPES.includes(value)) return;
@@ -1084,7 +1184,8 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async 
           updates.push('first_response_at = ?');
           params.push(toSqlDateTime(now));
           updates.push('sla_first_response_met = ?');
-          params.push(getSlaFlag(now, chamado.first_response_due_at));
+          params.push(getSlaFlagWithPause(now, chamado.first_response_due_at, chamado));
+          chamado.first_response_at = now;
         }
       } else {
         updates.push('assigned_to = NULL');
@@ -1092,6 +1193,12 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async 
     }
 
     if (status && CHAMADO_STATUSES.includes(status)) {
+      const pauseReason = normalizeString(req.body.sla_pause_reason, 500) || normalizeString(req.body.observation, 500);
+      if (SLA_PAUSED_STATUSES.includes(status) && !pauseReason) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Informe o motivo de pausa do SLA' });
+      }
+
       updates.push('status = ?');
       params.push(status);
       if (status !== chamado.status) {
@@ -1103,14 +1210,17 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async 
         });
       }
 
-      if (!chamado.first_response_at && IN_PROGRESS_STATUSES.includes(status)) {
-        updates.push('first_response_at = ?');
-        params.push(toSqlDateTime(now));
-        updates.push('sla_first_response_met = ?');
-        params.push(getSlaFlag(now, chamado.first_response_due_at));
-      }
+      addStatusTimingUpdates({
+        chamado,
+        nextStatus: status,
+        updateFields: updates,
+        updateValues: params,
+        now,
+        userId: req.user.id,
+        pauseReason
+      });
 
-      if (CLOSED_STATUSES.includes(status) || status === 'encerrado') {
+      if (RESOLVED_STATUSES.includes(status) || CLOSED_STATUSES.includes(status)) {
         const category = fields.category || chamado.category;
         const subcategory = fields.subcategory || chamado.subcategory;
         const rootCause = fields.root_cause || chamado.root_cause;
@@ -1118,19 +1228,11 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async 
         const attendanceType = fields.attendance_type || chamado.attendance_type;
 
         if (!category || !subcategory || !rootCause || !solutionApplied || !attendanceType) {
+          await connection.rollback();
           return res.status(400).json({
             error: 'Para fechar o chamado, informe categoria, subcategoria, causa, solucao aplicada e tipo de atendimento'
           });
         }
-
-        updates.push('closed_at = ?');
-        params.push(toSqlDateTime(now));
-        updates.push('resolved_by = ?');
-        params.push(req.user.id);
-        updates.push('final_status = ?');
-        params.push(status);
-        updates.push('sla_resolution_met = ?');
-        params.push(getSlaFlag(now, chamado.resolution_due_at));
       } else {
         updates.push('closed_at = NULL');
       }

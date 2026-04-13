@@ -597,7 +597,8 @@ document.getElementById('formNewChamado')?.addEventListener('submit', async (e) 
   const category = getFieldValue('chamadoCategory');
   const subcategory = document.getElementById('chamadoSubcategory')?.value || '';
   const priority = getFieldValue('chamadoPriority');
-  const impact = isAdmin() ? (document.getElementById('chamadoImpact')?.value || 'individual') : 'individual';
+  const urgency = getFieldValue('chamadoUrgency') || 'media';
+  const impact = document.getElementById('chamadoImpact')?.value || 'individual';
   const supportLevel = isAdmin() ? (document.getElementById('chamadoSupportLevel')?.value || 'N1') : 'N1';
   const validationErrors = [];
 
@@ -625,6 +626,9 @@ document.getElementById('formNewChamado')?.addEventListener('submit', async (e) 
   if (!['baixa', 'normal', 'alta', 'urgente'].includes(priority)) {
     validationErrors.push('Selecione uma prioridade válida');
   }
+  if (!['baixa', 'media', 'alta', 'critica'].includes(urgency)) {
+    validationErrors.push('Selecione uma urgência válida');
+  }
 
   if (showValidationAlert(validationErrors)) {
     return;
@@ -640,13 +644,13 @@ document.getElementById('formNewChamado')?.addEventListener('submit', async (e) 
   formData.append('category', category);
   formData.append('subcategory', subcategory);
   formData.append('priority', priority);
+  formData.append('urgency', urgency);
   formData.append('impact', impact);
   formData.append('support_level', supportLevel);
   formData.append('assigned_to', isAdmin() ? (document.getElementById('chamadoAssignedTo')?.value || '') : '');
   formData.append('asset_tag', isAdmin() ? getFieldValue('chamadoAssetTag') : '');
   formData.append('serial_number', isAdmin() ? getFieldValue('chamadoSerial') : '');
   formData.append('hostname', isAdmin() ? getFieldValue('chamadoHostname') : '');
-  formData.append('ip_address', isAdmin() ? getFieldValue('chamadoIp') : '');
   formData.append('extension_number', getFieldValue('chamadoExtension'));
   formData.append('affected_system', getFieldValue('chamadoSystem'));
   formData.append('recurrence_flag', isAdmin() ? (document.getElementById('chamadoRecurrence')?.value || '0') : '0');
@@ -696,10 +700,10 @@ document.getElementById('chamadoCategory')?.addEventListener('change', (event) =
   syncChamadoSubcategoryOptions(event.target.value);
 });
 
-['chamadoFilterCategory', 'chamadoFilterPriority', 'chamadoFilterChannel', 'chamadoFilterSla', 'chamadoFilterRecurrence', 'chamadoFilterAssignedTo']
+['chamadoFilterDepartment', 'chamadoFilterCategory', 'chamadoFilterPriority', 'chamadoFilterChannel', 'chamadoFilterSla', 'chamadoFilterRecurrence', 'chamadoFilterUnit', 'chamadoFilterAssignedTo']
   .forEach(id => document.getElementById(id)?.addEventListener('change', () => loadChamados()));
 
-['chamadoFilterDepartment', 'chamadoFilterUnit', 'chamadoFilterSearch']
+['chamadoFilterSearch']
   .forEach(id => document.getElementById(id)?.addEventListener('input', () => loadChamados()));
 
 syncChamadoDateInputs();
@@ -801,9 +805,7 @@ async function showChamadoDetails(chamadoId) {
           <div class="form-group" style="flex: 1; min-width: 180px;">
             <label for="editChamadoStatus">Status</label>
             <select id="editChamadoStatus" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-              <option value="aberto" ${chamado.status === 'aberto' ? 'selected' : ''}>Aberto</option>
-              <option value="pendente" ${chamado.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-              <option value="fechado" ${chamado.status === 'fechado' ? 'selected' : ''}>Fechado</option>
+              ${['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'fechado', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -817,7 +819,7 @@ async function showChamadoDetails(chamadoId) {
       <p><strong>ID:</strong> #${chamado.id}</p>
       <p><strong>Título:</strong> ${chamado.title}</p>
       <p><strong>Descrição:</strong> ${chamado.description}</p>
-      <p><strong>Departamento:</strong> ${chamado.category || '-'}</p>
+      <p><strong>Categoria:</strong> ${chamado.category || '-'}</p>
       <p><strong>Prioridade:</strong> <span class="priority-badge ${chamado.priority}">${chamado.priority}</span></p>
       <p><strong>Status:</strong> <span class="status-badge ${chamado.status}">${chamado.status}</span></p>
       <p><strong>Data de Criação:</strong> ${new Date(chamado.created_at).toLocaleDateString('pt-BR')}</p>
@@ -846,7 +848,7 @@ async function salvarEdicaoChamado(chamadoId) {
   if (!['baixa', 'normal', 'alta', 'urgente'].includes(priority)) {
     validationErrors.push('Selecione uma prioridade válida');
   }
-  if (!['aberto', 'pendente', 'fechado'].includes(status)) {
+  if (!['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'fechado', 'cancelado', 'reaberto'].includes(status)) {
     validationErrors.push('Selecione um status válido');
   }
 
@@ -1024,7 +1026,7 @@ async function showChamadoDetails(chamadoId) {
           <div class="form-group" style="flex:1; min-width:180px;">
             <label for="editChamadoStatus">Status</label>
             <select id="editChamadoStatus" style="width:100%; padding:8px;">
-              ${['triagem', 'pendente', 'em_andamento', 'concluido', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
+              ${['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'fechado', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group" style="flex:1; min-width:180px;">
@@ -1033,6 +1035,15 @@ async function showChamadoDetails(chamadoId) {
               <option value="individual" ${chamado.impact === 'individual' ? 'selected' : ''}>Individual</option>
               <option value="setor" ${chamado.impact === 'setor' ? 'selected' : ''}>Setor</option>
               <option value="empresa" ${chamado.impact === 'empresa' ? 'selected' : ''}>Empresa</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoUrgency">Urgência</label>
+            <select id="editChamadoUrgency" style="width:100%; padding:8px;">
+              <option value="baixa" ${chamado.urgency === 'baixa' ? 'selected' : ''}>Baixa</option>
+              <option value="media" ${!chamado.urgency || chamado.urgency === 'media' ? 'selected' : ''}>Média</option>
+              <option value="alta" ${chamado.urgency === 'alta' ? 'selected' : ''}>Alta</option>
+              <option value="critica" ${chamado.urgency === 'critica' ? 'selected' : ''}>Crítica</option>
             </select>
           </div>
           <div class="form-group" style="flex:1; min-width:180px;">
@@ -1087,10 +1098,6 @@ async function showChamadoDetails(chamadoId) {
               <label for="editChamadoHostname">Hostname/Máquina</label>
               <input id="editChamadoHostname" type="text" value="${chamado.hostname || ''}" style="width:100%; padding:8px;">
             </div>
-            <div class="form-group" style="flex:1;">
-              <label for="editChamadoIp">IP</label>
-              <input id="editChamadoIp" type="text" value="${chamado.ip_address || ''}" style="width:100%; padding:8px;">
-            </div>
           </div>
           <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
             <div class="form-group" style="flex:1; min-width:180px;">
@@ -1132,6 +1139,10 @@ async function showChamadoDetails(chamadoId) {
             <label for="editChamadoObservation">Observação</label>
             <textarea id="editChamadoObservation" rows="2" style="width:100%; padding:8px;"></textarea>
           </div>
+          <div class="form-group" style="flex:1;">
+            <label for="editChamadoPauseReason">Motivo Pausa SLA</label>
+            <textarea id="editChamadoPauseReason" rows="2" style="width:100%; padding:8px;" placeholder="Obrigatório quando estiver aguardando usuário ou fornecedor">${chamado.sla_pause_reason || ''}</textarea>
+          </div>
         </div>
         ${additionalImagesSection}
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
@@ -1150,6 +1161,7 @@ async function showChamadoDetails(chamadoId) {
       <p><strong>Categoria:</strong> ${chamado.category || '-'} / ${humanizeOptionLabel(chamado.subcategory || '-')}</p>
       <p><strong>Descrição:</strong> ${chamado.description}</p>
       <p><strong>Impacto:</strong> ${humanizeOptionLabel(chamado.impact || '-')}</p>
+      <p><strong>Urgência:</strong> ${humanizeOptionLabel(chamado.urgency || 'media')}</p>
       <p><strong>Suporte:</strong> ${chamado.support_level || '-'}</p>
       <p><strong>Prioridade:</strong> <span class="priority-badge ${chamado.priority}">${humanizeOptionLabel(chamado.priority)}</span></p>
       <p><strong>Status:</strong> <span class="status-badge ${chamado.status}">${getChamadoStatusLabel(chamado.status)}</span></p>
@@ -1157,8 +1169,14 @@ async function showChamadoDetails(chamadoId) {
       <p><strong>Técnico:</strong> ${chamado.assigned_to_name || '-'}</p>
       <p><strong>Abertura:</strong> ${new Date(chamado.opened_at || chamado.created_at).toLocaleString('pt-BR')}</p>
       <p><strong>Primeiro atendimento:</strong> ${chamado.first_response_at ? new Date(chamado.first_response_at).toLocaleString('pt-BR') : '-'}</p>
+      <p><strong>Início do atendimento:</strong> ${chamado.service_started_at ? new Date(chamado.service_started_at).toLocaleString('pt-BR') : '-'}</p>
+      <p><strong>Resolução:</strong> ${chamado.resolved_at ? new Date(chamado.resolved_at).toLocaleString('pt-BR') : '-'}</p>
       <p><strong>Encerramento:</strong> ${chamado.closed_at ? new Date(chamado.closed_at).toLocaleString('pt-BR') : '-'}</p>
-      <p><strong>Ativos vinculados:</strong> ${[chamado.asset_tag, chamado.serial_number, chamado.hostname, chamado.ip_address].filter(Boolean).join(' / ') || '-'}</p>
+      <p><strong>Tempo de atendimento:</strong> ${chamado.service_started_at ? formatDurationSeconds(getChamadoServiceSeconds(chamado)) : '-'}</p>
+      <p><strong>Tempo em espera:</strong> ${formatDurationSeconds((Number(chamado.waiting_user_seconds || 0) + Number(chamado.waiting_vendor_seconds || 0)))}</p>
+      <p><strong>Tempo de fechamento:</strong> ${chamado.resolved_at && chamado.closed_at ? formatDurationSeconds(getChamadoClosingSeconds(chamado)) : '-'}</p>
+      <p><strong>Motivo de pausa:</strong> ${chamado.sla_pause_reason || '-'}</p>
+      <p><strong>Ativos vinculados:</strong> ${[chamado.asset_tag, chamado.serial_number, chamado.hostname].filter(Boolean).join(' / ') || '-'}</p>
       <p><strong>Sistema afetado:</strong> ${chamado.affected_system || '-'}</p>
       <p><strong>Recorrência:</strong> ${Number(chamado.recurrence_flag || 0) === 1 ? `Sim${chamado.recurrence_type ? ` - ${chamado.recurrence_type}` : ''}` : 'Não'}</p>
       ${attachmentsHTML}
@@ -1197,12 +1215,18 @@ async function salvarEdicaoChamado(chamadoId) {
       payload.assigned_to = document.getElementById('editChamadoAssignedTo')?.value || '';
       payload.status = document.getElementById('editChamadoStatus')?.value || '';
       payload.impact = document.getElementById('editChamadoImpact')?.value || '';
+      payload.urgency = document.getElementById('editChamadoUrgency')?.value || '';
       payload.support_level = document.getElementById('editChamadoSupportLevel')?.value || '';
+      payload.sla_pause_reason = document.getElementById('editChamadoPauseReason')?.value || '';
       payload.asset_tag = document.getElementById('editChamadoAssetTag')?.value || '';
       payload.serial_number = document.getElementById('editChamadoSerial')?.value || '';
       payload.hostname = document.getElementById('editChamadoHostname')?.value || '';
-      payload.ip_address = document.getElementById('editChamadoIp')?.value || '';
       payload.recurrence_flag = document.getElementById('editChamadoRecurrence')?.value || '0';
+    }
+
+    if (['aguardando_usuario', 'aguardando_fornecedor'].includes(payload.status) && !payload.sla_pause_reason) {
+      alert('Informe o motivo de pausa do SLA.');
+      return;
     }
 
     const response = await fetch(`${API_URL}/chamados/${chamadoId}`, {
@@ -2308,6 +2332,33 @@ function humanizeOptionLabel(value) {
     .replace(/\b\w/g, char => char.toUpperCase());
 }
 
+function formatDurationSeconds(totalSeconds) {
+  const seconds = Math.max(0, Number(totalSeconds) || 0);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}min`;
+  return `${minutes}min`;
+}
+
+function secondsBetweenDates(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
+  return Math.floor((end - start) / 1000);
+}
+
+function getChamadoServiceSeconds(chamado) {
+  if (!chamado?.service_started_at) return 0;
+  const endDate = chamado.resolved_at || chamado.closed_at || new Date();
+  return Math.max(0, secondsBetweenDates(chamado.service_started_at, endDate) - Number(chamado.paused_seconds || 0));
+}
+
+function getChamadoClosingSeconds(chamado) {
+  if (!chamado?.resolved_at || !chamado?.closed_at) return 0;
+  return secondsBetweenDates(chamado.resolved_at, chamado.closed_at);
+}
+
 function getChamadoStatusLabel(status) {
   const labels = {
     aberto: 'Aberto',
@@ -2319,6 +2370,7 @@ function getChamadoStatusLabel(status) {
     aguardando_fornecedor: 'Aguardando fornecedor',
     pausado: 'Pausado',
     resolvido: 'Resolvido',
+    fechado: 'Fechado',
     concluido: 'Concluído',
     encerrado: 'Encerrado',
     cancelado: 'Cancelado',
@@ -2377,6 +2429,32 @@ function populateUsuariosSelects() {
   }
 }
 
+function populateDepartmentFilter() {
+  const sourceSelect = document.getElementById('chamadoDepartment');
+  const filterSelect = document.getElementById('chamadoFilterDepartment');
+  if (!sourceSelect || !filterSelect) return;
+
+  const options = Array.from(sourceSelect.options)
+    .filter(option => option.value)
+    .map(option => `<option value="${option.value}">${option.textContent}</option>`)
+    .join('');
+
+  filterSelect.innerHTML = '<option value="">Todos</option>' + options;
+}
+
+function populateUnitFilter() {
+  const sourceSelect = document.getElementById('chamadoUnit');
+  const filterSelect = document.getElementById('chamadoFilterUnit');
+  if (!sourceSelect || !filterSelect) return;
+
+  const options = Array.from(sourceSelect.options)
+    .filter(option => option.value)
+    .map(option => `<option value="${option.value}">${option.textContent}</option>`)
+    .join('');
+
+  filterSelect.innerHTML = '<option value="">Todas</option>' + options;
+}
+
 async function loadChamadosMetadata() {
   try {
     const response = await fetch(`${API_URL}/chamados/metadata`, {
@@ -2392,6 +2470,8 @@ async function loadChamadosMetadata() {
   buildChamadoCategoryOptions('chamadoCategory');
   buildChamadoCategoryOptions('chamadoFilterCategory', 'Todas');
   syncChamadoSubcategoryOptions();
+  populateDepartmentFilter();
+  populateUnitFilter();
 }
 
 async function loadChamadoUsers() {

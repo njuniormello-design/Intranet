@@ -369,8 +369,8 @@ O sistema está preparado para:
 Quanto ao SLA:
 O SLA ficou baseado na prioridade do chamado e hoje está assim em chamados.js:
 
-urgente: primeiro atendimento em 15 min e solução em 240 min (4h)
-alta: primeiro atendimento em 30 min e solução em 480 min (8h)
+urgente: primeiro atendimento em 30 min e solução em 240 min (4h)
+alta: primeiro atendimento em 60 min e solução em 480 min (8h)
 normal: primeiro atendimento em 120 min (2h) e solução em 1440 min (24h)
 baixa: primeiro atendimento em 240 min (4h) e solução em 2880 min (48h)
 A lógica calcula dois prazos no momento da abertura:

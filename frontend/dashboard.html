@@ -180,7 +180,7 @@
                     <input type="text" id="chamadoTitle" name="title" minlength="3" maxlength="120" required>
                 </div>
                 <div class="form-group">
-                  <label for="chamadoCategory">Departamento:</label>
+                  <label for="chamadoCategory">Categoria:</label>
                   <select id="chamadoCategory" name="category">
                     <option value="">Selecione...</option>
                     <option value="TI">TI</option>
@@ -256,7 +256,7 @@
                   <label for="chamadoSubcategory">Subcategoria:</label>
                   <select id="chamadoSubcategory" name="subcategory" required></select>
                 </div>
-                <div class="form-group ticket-admin-only">
+                <div class="form-group">
                   <label for="chamadoImpact">Impacto:</label>
                   <select id="chamadoImpact" name="impact">
                     <option value="individual" selected>Individual</option>
@@ -298,10 +298,6 @@
                   <label for="chamadoHostname">Hostname/Máquina:</label>
                   <input type="text" id="chamadoHostname" name="hostname" maxlength="100">
                 </div>
-                <div class="form-group ticket-admin-only">
-                  <label for="chamadoIp">IP:</label>
-                  <input type="text" id="chamadoIp" name="ip_address" maxlength="45">
-                </div>
                 <div class="form-group">
                   <label for="chamadoExtension">Ramal:</label>
                   <input type="text" id="chamadoExtension" name="extension_number" maxlength="30">
@@ -332,6 +328,15 @@
                     <option value="normal" selected>Normal</option>
                     <option value="alta">Alta</option>
                     <option value="urgente">Urgente</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="chamadoUrgency">Urgência:</label>
+                  <select id="chamadoUrgency" name="urgency">
+                    <option value="baixa">Baixa</option>
+                    <option value="media" selected>Média</option>
+                    <option value="alta">Alta</option>
+                    <option value="critica">Crítica</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -373,13 +378,6 @@
             <div class="form-section" style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
               <h3 style="margin: 0;">Filtros e relatório</h3>
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" id="btnAbrirRelatorioHtml" onclick="openChamadosReportHtml()" class="btn btn-secondary">Abrir HTML</button>
-                <button type="button" id="btnGerarRelatorioPdf" onclick="generateChamadosReportPdf()" class="btn btn-primary">Gerar PDF</button>
-                <button type="button" id="btnExportarRelatorioExcel" onclick="exportChamadosReportExcel()" class="btn btn-secondary">Exportar Excel</button>
-                <button type="button" id="btnExportarRelatorioCsv" onclick="exportChamadosReportCsv()" class="btn btn-secondary">CSV</button>
-                <button type="button" id="btnExportarRelatorioJson" onclick="exportChamadosReportJson()" class="btn btn-secondary">JSON</button>
-              </div>
             </div>
             <div class="form-row">
               <div class="form-group" style="flex: 1;">
@@ -389,7 +387,7 @@
                   <option value="aberto">Abertos</option>
                   <option value="pendente">Pendentes</option>
                   <option value="em_atendimento">Em andamento</option>
-                  <option value="resolvido">Concluídos</option>
+                  <option value="resolvido">Resolvidos</option>
                   <option value="fechado">Fechados/cancelados</option>
                   <option value="todos">Todos</option>
                 </select>
@@ -406,7 +404,9 @@
             <div class="form-row">
               <div class="form-group" style="flex: 1;">
                 <label for="chamadoFilterDepartment">Setor:</label>
-                <input type="text" id="chamadoFilterDepartment" placeholder="Ex.: TI">
+                <select id="chamadoFilterDepartment">
+                  <option value="">Todos</option>
+                </select>
               </div>
               <div class="form-group" style="flex: 1;">
                 <label for="chamadoFilterCategory">Categoria:</label>
@@ -456,7 +456,9 @@
             <div class="form-row">
               <div class="form-group" style="flex: 1;">
                 <label for="chamadoFilterUnit">Unidade:</label>
-                <input type="text" id="chamadoFilterUnit" placeholder="Ex.: Matriz">
+                <select id="chamadoFilterUnit">
+                  <option value="">Todas</option>
+                </select>
               </div>
               <div class="form-group" style="flex: 1;">
                 <label for="chamadoFilterAssignedTo">Técnico:</label>
@@ -468,6 +470,13 @@
                 <label for="chamadoFilterSearch">Busca:</label>
                 <input type="text" id="chamadoFilterSearch" placeholder="Número, título, ativo, sistema...">
               </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin-top: 18px;">
+              <button type="button" id="btnAbrirRelatorioHtml" onclick="openChamadosReportHtml()" class="btn btn-secondary">Abrir HTML</button>
+              <button type="button" id="btnGerarRelatorioPdf" onclick="generateChamadosReportPdf()" class="btn btn-primary">Gerar PDF</button>
+              <button type="button" id="btnExportarRelatorioExcel" onclick="exportChamadosReportExcel()" class="btn btn-secondary">Exportar Excel</button>
+              <button type="button" id="btnExportarRelatorioCsv" onclick="exportChamadosReportCsv()" class="btn btn-secondary">CSV</button>
+              <button type="button" id="btnExportarRelatorioJson" onclick="exportChamadosReportJson()" class="btn btn-secondary">JSON</button>
             </div>
           </div>
           </div>
