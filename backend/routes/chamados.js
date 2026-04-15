@@ -224,7 +224,16 @@ function addBusinessMinutes(date, minutes) {
 
 function toSqlDateTime(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
-  return date.toISOString().slice(0, 19).replace('T', ' ');
+  const pad = value => String(value).padStart(2, '0');
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate())
+  ].join('-') + ' ' + [
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds())
+  ].join(':');
 }
 
 function calculateSla(priority, openedAt = new Date()) {
