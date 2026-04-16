@@ -2358,7 +2358,7 @@ function secondsBetweenDates(startDate, endDate) {
 function getChamadoServiceSeconds(chamado) {
   if (!chamado?.service_started_at) return 0;
   const endDate = chamado.resolved_at || chamado.closed_at || new Date();
-  return Math.max(0, secondsBetweenDates(chamado.service_started_at, endDate) - Number(chamado.paused_seconds || 0));
+  return secondsBetweenDates(chamado.service_started_at, endDate);
 }
 
 function getChamadoClosingSeconds(chamado) {
