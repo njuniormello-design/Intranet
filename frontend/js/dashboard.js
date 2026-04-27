@@ -2257,8 +2257,8 @@ if (formNewUsuario) {
     }
 
     try {
-      const response = await fetch(editingUsuarioId ? `${API_URL}/usuarios/${editingUsuarioId}` : `${API_URL}/usuarios/create`, {
-        method: editingUsuarioId ? 'PUT' : 'POST',
+      const response = await fetch(editingUsuarioId ? `${API_URL}/usuarios/${editingUsuarioId}/update` : `${API_URL}/usuarios/create`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -2266,7 +2266,7 @@ if (formNewUsuario) {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      const data = await readApiResponse(response);
       const apiMessage = data?.error || data?.message || (Array.isArray(data?.errors) && data.errors.length > 0
         ? data.errors.map(err => err.msg).join(' | ')
         : null);
