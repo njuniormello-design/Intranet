@@ -30,11 +30,6 @@ const authenticateToken = (req, res, next) => {
       return res.status(403).json({ error: 'Token invalido' });
     }
 
-    if (user.role) {
-      req.user = { ...user, role: normalizeRole(user.role) };
-      return next();
-    }
-
     (async () => {
       const connection = await pool.getConnection();
       const [users] = await connection.query(

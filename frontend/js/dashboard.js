@@ -36,6 +36,7 @@ let editingChamadoId = null;
 let editingChamadoData = null;
 let editingComunicadoId = null;
 let editingFuncionarioId = null;
+let editingUsuarioId = null;
 
 function normalizeRole(role) {
   if (!role) return 'viewer';
@@ -271,6 +272,27 @@ function syncUsuarioRoleOptions() {
     select.value = currentValue;
   } else {
     select.value = allowedRoles[0] || 'viewer';
+  }
+}
+
+function setUsuarioFormMode(mode) {
+  const title = document.querySelector('#newUsuarioForm h3');
+  const submitButton = document.querySelector('#formNewUsuario button[type="submit"]');
+  const passwordInput = document.getElementById('usuarioSenha');
+  const passwordLabel = document.querySelector('label[for="usuarioSenha"]');
+
+  if (title) {
+    title.textContent = mode === 'edit' ? 'Editar Usuario' : 'Cadastrar Novo Usuario';
+  }
+  if (submitButton) {
+    submitButton.textContent = mode === 'edit' ? 'Salvar Alteracoes' : 'Cadastrar';
+  }
+  if (passwordInput) {
+    passwordInput.required = mode !== 'edit';
+    passwordInput.placeholder = mode === 'edit' ? 'Deixe em branco para manter a senha atual' : '';
+  }
+  if (passwordLabel) {
+    passwordLabel.textContent = mode === 'edit' ? 'Nova senha:' : 'Senha:';
   }
 }
 
@@ -2154,6 +2176,10 @@ function showNewUsuarioForm() {
     return;
   }
 
+  editingUsuarioId = null;
+  setUsuarioFormMode('create');
+  const formEl = document.getElementById('formNewUsuario');
+  if (formEl) formEl.reset();
   const form = document.getElementById('newUsuarioForm');
   const birthDateInput = document.getElementById('usuarioNascimento');
   if (birthDateInput) {
@@ -2168,6 +2194,8 @@ function hideUsuarioForm() {
   if (form) form.style.display = 'none';
   const formEl = document.getElementById('formNewUsuario');
   if (formEl) formEl.reset();
+  editingUsuarioId = null;
+  setUsuarioFormMode('create');
 }
 
 const formNewUsuario = document.getElementById('formNewUsuario');
@@ -2184,20 +2212,27 @@ if (formNewUsuario) {
     const username = getFieldValue('usuarioLogin');
     const password = document.getElementById('usuarioSenha').value;
     const birthDate = document.getElementById('usuarioNascimento')?.value || '';
+    const email = getFieldValue('usuarioEmail');
     const role = document.getElementById('usuarioPerfil').value;
     const validationErrors = [];
 
     if (!validateLength(username, 3, 30) || !/^[a-zA-Z0-9_.-]+$/.test(username)) {
       validationErrors.push('Login deve ter entre 3 e 30 caracteres e usar apenas letras, números, ponto, underline ou hífen');
     }
-    if (!validateLength(password, 6, 72)) {
+    if (!editingUsuarioId && !validateLength(password, 6, 72)) {
       validationErrors.push('Senha deve ter entre 6 e 72 caracteres');
+    }
+    if (editingUsuarioId && password && !validateLength(password, 6, 72)) {
+      validationErrors.push('Nova senha deve ter entre 6 e 72 caracteres');
     }
     if (name && !validateLength(name, 2, 100)) {
       validationErrors.push('Nome deve ter entre 2 e 100 caracteres');
     }
     if (birthDate && isFutureDate(birthDate)) {
       validationErrors.push('Data de nascimento nao pode ser futura');
+    }
+    if (email && !validateEmailFormat(email)) {
+      validationErrors.push('Informe um email valido');
     }
     const allowedRoles = getAllowedUserRoles();
     if (!allowedRoles.includes(role)) {
@@ -2211,14 +2246,19 @@ if (formNewUsuario) {
     const payload = {
       name,
       username,
-      password,
       role,
       birth_date: birthDate || null
     };
+    if (email) {
+      payload.email = email;
+    }
+    if (password) {
+      payload.password = password;
+    }
 
     try {
-      const response = await fetch(`${API_URL}/usuarios/create`, {
-        method: 'POST',
+      const response = await fetch(editingUsuarioId ? `${API_URL}/usuarios/${editingUsuarioId}` : `${API_URL}/usuarios/create`, {
+        method: editingUsuarioId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -2232,15 +2272,15 @@ if (formNewUsuario) {
         : null);
 
       if (response.ok) {
-        alert('Usuário cadastrado com sucesso!');
+        alert(editingUsuarioId ? 'Usuario atualizado com sucesso!' : 'Usuario cadastrado com sucesso!');
         hideUsuarioForm();
         loadUsuarios();
       } else {
-        alert(apiMessage || 'Erro ao cadastrar usuário');
+        alert(apiMessage || (editingUsuarioId ? 'Erro ao atualizar usuario' : 'Erro ao cadastrar usuario'));
       }
     } catch (error) {
-      console.error('Erro ao cadastrar usuário:', error);
-      alert('Erro ao cadastrar usuário: ' + error.message);
+      console.error('Erro ao salvar usuario:', error);
+      alert('Erro ao salvar usuario: ' + error.message);
     }
   });
 }
@@ -2267,6 +2307,8 @@ async function loadUsuarios() {
       throw new Error(usuarios.error || 'Erro ao carregar usuários');
     }
 
+    usuariosCache = Array.isArray(usuarios) ? usuarios : [];
+
     if (usuarios.length === 0) {
       tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
       return;
@@ -2275,20 +2317,55 @@ async function loadUsuarios() {
     tableBody.innerHTML = usuarios.map(u => `
       <tr>
         <td>#${u.id}</td>
-        <td>${u.username}</td>
-        <td>${u.name || '-'}</td>
-        <td>${u.email || '-'}</td>
+        <td>${escapeHtml(u.username)}</td>
+        <td>${escapeHtml(u.name || '-')}</td>
+        <td>${escapeHtml(u.email || '-')}</td>
         <td>${formatDateToPtBr(u.birth_date)}</td>
-        <td><span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">${ROLE_LABELS[normalizeRole(u.role)] || u.role}</span></td>
+        <td><span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">${escapeHtml(ROLE_LABELS[normalizeRole(u.role)] || u.role)}</span></td>
         <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
         <td>
-          ${getCurrentRole() === 'admin' && u.id !== currentUser.id ? `<button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">Excluir</button>` : '-'}
+          ${getCurrentRole() === 'admin' && Number(u.id) !== Number(currentUser.id) ? `<button onclick="editUser(${u.id})" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">Editar</button><button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">Excluir</button>` : '-'}
         </td>
       </tr>
     `).join('');
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
     tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
+  }
+}
+
+function editUser(userId) {
+  if (getCurrentRole() !== 'admin') {
+    alert('Apenas administradores podem editar usuarios.');
+    return;
+  }
+
+  const user = usuariosCache.find(item => Number(item.id) === Number(userId));
+  if (!user) {
+    alert('Usuario nao encontrado na lista.');
+    return;
+  }
+
+  editingUsuarioId = Number(user.id);
+  setUsuarioFormMode('edit');
+  syncUsuarioRoleOptions();
+
+  const form = document.getElementById('newUsuarioForm');
+  const birthDateInput = document.getElementById('usuarioNascimento');
+  if (birthDateInput) {
+    birthDateInput.max = new Date().toISOString().slice(0, 10);
+  }
+
+  document.getElementById('usuarioNome').value = user.name || '';
+  document.getElementById('usuarioLogin').value = user.username || '';
+  document.getElementById('usuarioSenha').value = '';
+  document.getElementById('usuarioEmail').value = user.email || '';
+  document.getElementById('usuarioNascimento').value = user.birth_date ? String(user.birth_date).slice(0, 10) : '';
+  document.getElementById('usuarioPerfil').value = normalizeRole(user.role);
+
+  if (form) {
+    form.style.display = 'block';
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
