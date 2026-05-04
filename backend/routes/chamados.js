@@ -55,7 +55,7 @@ const SLA_STOPPED_STATUSES = ['triagem', ...SLA_PAUSED_STATUSES];
 const PRIORITY_ORDER = ['urgente', 'alta', 'normal', 'baixa'];
 const BUSINESS_START_HOUR = 8;
 const BUSINESS_END_HOUR = 18;
-const ALLOWED_UNITS = ['Sede Administrativa', 'Sede Operações', 'Home Office', 'Area Externa'];
+const ALLOWED_UNITS = ['Sede Administrativa', 'Sede Operações', 'Home Office', 'Area Externa', 'TODOS', 'Todos'];
 const ALLOWED_DEPARTMENTS = [
   'COPA',
   'BANHEIROS',

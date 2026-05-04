@@ -130,10 +130,9 @@ async function main() {
        ON DUPLICATE KEY UPDATE
          username = VALUES(username),
          email = VALUES(email),
-         password = VALUES(password),
          name = VALUES(name),
          department = VALUES(department),
-         role = VALUES(role),
+         role = role,
          updated_at = NOW()`,
       [rows]
     );
