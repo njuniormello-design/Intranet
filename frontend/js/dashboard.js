@@ -413,6 +413,43 @@ function renderCurrentUser() {
   }
 }
 
+function toggleUserMenu() {
+  const menu = document.getElementById('userMenu');
+  if (!menu) return;
+  menu.style.display = menu.style.display === 'none' || !menu.style.display ? 'block' : 'none';
+}
+
+function closeUserMenu() {
+  const menu = document.getElementById('userMenu');
+  if (menu) {
+    menu.style.display = 'none';
+  }
+}
+
+function openChangePasswordModal() {
+  closeUserMenu();
+  const modal = document.getElementById('changePasswordModal');
+  const form = document.getElementById('formChangePassword');
+  if (form) {
+    form.reset();
+  }
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+  document.getElementById('newPassword')?.focus();
+}
+
+function closeChangePasswordModal() {
+  const modal = document.getElementById('changePasswordModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  const form = document.getElementById('formChangePassword');
+  if (form) {
+    form.reset();
+  }
+}
+
 function applyRolePermissions() {
   syncAdminOnlyTicketFields();
 
@@ -2393,6 +2430,38 @@ async function deleteUser(userId) {
   }
 }
 
+const formChangePassword = document.getElementById('formChangePassword');
+if (formChangePassword) {
+  formChangePassword.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const password = document.getElementById('newPassword')?.value || '';
+
+    try {
+      const response = await fetch(`${API_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ password })
+      });
+
+      const data = await readApiResponse(response);
+
+      if (response.ok) {
+        alert(data.message || 'Senha alterada com sucesso!');
+        closeChangePasswordModal();
+      } else {
+        alert(data.error || 'Erro ao alterar senha');
+      }
+    } catch (error) {
+      console.error('Erro ao alterar senha:', error);
+      alert('Erro ao alterar senha: ' + error.message);
+    }
+  });
+}
+
 // ==================== LOGOUT ====================
 function logout() {
   if (confirm('Deseja fazer logout?')) {
@@ -2407,6 +2476,15 @@ window.onclick = function(event) {
   const modal = document.getElementById('chamadoModal');
   if (event.target === modal) {
     modal.style.display = 'none';
+  }
+
+  const passwordModal = document.getElementById('changePasswordModal');
+  if (event.target === passwordModal) {
+    closeChangePasswordModal();
+  }
+
+  if (!event.target.closest?.('.user-menu-container')) {
+    closeUserMenu();
   }
 }
 

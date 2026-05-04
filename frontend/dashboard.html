@@ -59,12 +59,17 @@
           <h1 id="pageTitle">Dashboard</h1>
         </div>
         <div class="header-right">
-          <div class="user-info">
+          <div class="user-info user-menu-container">
             <span style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1;">
               <span id="userName">Usuário</span>
               <small id="userRole" style="color: #64748b;">Visualizador</small>
             </span>
-            <img src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
+            <button type="button" id="userMenuButton" class="avatar-button" onclick="toggleUserMenu()" aria-label="Abrir opcoes do usuario">
+              <img src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
+            </button>
+            <div id="userMenu" class="user-menu" style="display: none;">
+              <button type="button" onclick="openChangePasswordModal()">Alterar senha</button>
+            </div>
           </div>
         </div>
       </header>
@@ -837,7 +842,25 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260324-ideias"></script>
+  <div id="changePasswordModal" class="modal" style="display: none;">
+    <div class="modal-content modal-content-small">
+      <span class="close" onclick="closeChangePasswordModal()">&times;</span>
+      <h2>Alterar senha</h2>
+      <form id="formChangePassword">
+        <div class="form-group">
+          <label for="newPassword">Nova senha:</label>
+          <input type="password" id="newPassword" name="password" maxlength="6" autocomplete="new-password" required>
+          <small>Ate 6 numeros ou letras.</small>
+        </div>
+        <div style="text-align: right;">
+          <button type="button" onclick="closeChangePasswordModal()" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js?v=20260504-password"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {

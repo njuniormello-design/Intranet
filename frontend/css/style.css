@@ -357,9 +357,32 @@ html, body {
   gap: 12px;
 }
 
+.user-menu-container {
+  position: relative;
+}
+
 .user-info span {
   color: var(--text-dark);
   font-weight: 500;
+}
+
+.avatar-button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.avatar-button:hover,
+.avatar-button:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(111, 155, 130, 0.14);
 }
 
 .avatar {
@@ -367,6 +390,36 @@ html, body {
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 170px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 900;
+}
+
+.user-menu button {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dark);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.user-menu button:hover {
+  background: var(--primary-soft);
+  color: var(--primary-color-dark);
 }
 
 .content-area {
@@ -895,6 +948,10 @@ small {
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
   position: relative;
+}
+
+.modal-content-small {
+  width: min(420px, calc(100vw - 32px));
 }
 
 .close {

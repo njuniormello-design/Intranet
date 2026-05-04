@@ -162,6 +162,36 @@ router.get('/verify', authenticateToken, (req, res) => {
   res.json({ valid: true, user: req.user });
 });
 
+// Alterar a propria senha
+router.post('/change-password', authenticateToken, async (req, res) => {
+  let connection;
+
+  try {
+    const password = String(req.body.password || '');
+
+    if (!password) {
+      return res.status(400).json({ error: 'Informe a nova senha' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    connection = await pool.getConnection();
+
+    await connection.query(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedPassword, req.user.id]
+    );
+
+    res.json({ message: 'Senha alterada com sucesso' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao alterar senha' });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
 module.exports = router;
 module.exports.authenticateToken = authenticateToken;
 module.exports.authorizeRoles = authorizeRoles;
