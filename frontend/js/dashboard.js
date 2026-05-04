@@ -2235,6 +2235,61 @@ function hideUsuarioForm() {
   setUsuarioFormMode('create');
 }
 
+function getUsuarioSearchText(usuario) {
+  return [
+    usuario?.id ? `#${usuario.id}` : '',
+    usuario?.id,
+    usuario?.username,
+    usuario?.name,
+    usuario?.email,
+    ROLE_LABELS[normalizeRole(usuario?.role)] || usuario?.role,
+    formatDateToPtBr(usuario?.birth_date),
+    usuario?.created_at ? new Date(usuario.created_at).toLocaleDateString('pt-BR') : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function renderUsuariosList(filterValue = '') {
+  const tableBody = document.getElementById('usuariosTableBody');
+  if (!tableBody) return;
+
+  if (!canAccessUsers()) {
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Seu perfil nÃ£o tem acesso a esta Ã¡rea</td></tr>';
+    return;
+  }
+
+  const normalizedFilter = normalizeSearchText(filterValue);
+  const filteredUsuarios = normalizedFilter
+    ? usuariosCache.filter(usuario => normalizeSearchText(getUsuarioSearchText(usuario)).includes(normalizedFilter))
+    : usuariosCache;
+
+  if (usuariosCache.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuÃ¡rio cadastrado</td></tr>';
+    return;
+  }
+
+  if (filteredUsuarios.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuÃ¡rio encontrado para a busca</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = filteredUsuarios.map(u => `
+    <tr>
+      <td>#${u.id}</td>
+      <td>${escapeHtml(u.username)}</td>
+      <td>${escapeHtml(u.name || '-')}</td>
+      <td>${escapeHtml(u.email || '-')}</td>
+      <td>${formatDateToPtBr(u.birth_date)}</td>
+      <td><span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">${escapeHtml(ROLE_LABELS[normalizeRole(u.role)] || u.role)}</span></td>
+      <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+      <td>
+        ${getCurrentRole() === 'admin' && Number(u.id) !== Number(currentUser.id) ? `<button onclick="editUser(${u.id})" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">Editar</button><button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">Excluir</button>` : '-'}
+      </td>
+    </tr>
+  `).join('');
+}
+
 const formNewUsuario = document.getElementById('formNewUsuario');
 if (formNewUsuario) {
   formNewUsuario.addEventListener('submit', async (e) => {
@@ -2322,6 +2377,10 @@ if (formNewUsuario) {
   });
 }
 
+document.getElementById('usuarioSearch')?.addEventListener('input', (event) => {
+  renderUsuariosList(event.target.value);
+});
+
 async function loadUsuarios() {
   const tableBody = document.getElementById('usuariosTableBody');
   if (!tableBody) return;
@@ -2345,26 +2404,7 @@ async function loadUsuarios() {
     }
 
     usuariosCache = Array.isArray(usuarios) ? usuarios : [];
-
-    if (usuarios.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
-      return;
-    }
-
-    tableBody.innerHTML = usuarios.map(u => `
-      <tr>
-        <td>#${u.id}</td>
-        <td>${escapeHtml(u.username)}</td>
-        <td>${escapeHtml(u.name || '-')}</td>
-        <td>${escapeHtml(u.email || '-')}</td>
-        <td>${formatDateToPtBr(u.birth_date)}</td>
-        <td><span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">${escapeHtml(ROLE_LABELS[normalizeRole(u.role)] || u.role)}</span></td>
-        <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
-        <td>
-          ${getCurrentRole() === 'admin' && Number(u.id) !== Number(currentUser.id) ? `<button onclick="editUser(${u.id})" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">Editar</button><button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">Excluir</button>` : '-'}
-        </td>
-      </tr>
-    `).join('');
+    renderUsuariosList(document.getElementById('usuarioSearch')?.value || '');
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
     tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
