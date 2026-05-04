@@ -2493,7 +2493,12 @@ if (formChangePassword) {
         alert(data.message || 'Senha alterada com sucesso!');
         closeChangePasswordModal();
       } else {
-        alert(data.error || 'Erro ao alterar senha');
+        const errorMessage = String(data.error || '');
+        if (response.status === 404 || errorMessage.includes('Cannot POST') || errorMessage.includes('<!DOCTYPE html>')) {
+          alert('Alteracao de senha ainda nao esta disponivel no servidor. Atualize e reinicie o backend em producao.');
+        } else {
+          alert(errorMessage || 'Erro ao alterar senha');
+        }
       }
     } catch (error) {
       console.error('Erro ao alterar senha:', error);
