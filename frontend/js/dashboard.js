@@ -2561,6 +2561,16 @@ function getChamadoServiceSeconds(chamado) {
   return secondsBetweenDates(chamado.service_started_at, endDate);
 }
 
+function getChamadoTotalSeconds(chamado) {
+  const startDate = chamado?.opened_at || chamado?.created_at;
+  const endDate = chamado?.closed_at || chamado?.resolved_at || new Date();
+  return secondsBetweenDates(startDate, endDate);
+}
+
+function getChamadoWaitingSeconds(chamado) {
+  return Number(chamado?.waiting_user_seconds || 0) + Number(chamado?.waiting_vendor_seconds || 0);
+}
+
 function getChamadoClosingSeconds(chamado) {
   if (!chamado?.resolved_at || !chamado?.closed_at) return 0;
   return secondsBetweenDates(chamado.resolved_at, chamado.closed_at);
@@ -2860,11 +2870,21 @@ function getChamadosReportAppliedFilters() {
 }
 
 function getChamadosReportSummary() {
+  const averageSeconds = (values) => {
+    const validValues = values.filter(value => Number(value) > 0);
+    if (!validValues.length) return '-';
+    const total = validValues.reduce((sum, value) => sum + Number(value), 0);
+    return formatDurationSeconds(Math.round(total / validValues.length));
+  };
+
   return {
     opened: document.getElementById('reportOpenedTickets')?.textContent || '0',
     closed: document.getElementById('reportClosedTickets')?.textContent || '0',
     pending: document.getElementById('reportPendingTickets')?.textContent || '0',
-    sla: document.getElementById('reportSlaPercentage')?.textContent || '0%'
+    sla: document.getElementById('reportSlaPercentage')?.textContent || '0%',
+    avgTotal: averageSeconds(chamadosCache.map(getChamadoTotalSeconds)),
+    avgService: averageSeconds(chamadosCache.map(getChamadoServiceSeconds)),
+    avgWaiting: averageSeconds(chamadosCache.map(getChamadoWaitingSeconds))
   };
 }
 
@@ -2878,7 +2898,13 @@ function getChamadosReportRows() {
     prioridade: humanizeOptionLabel(chamado.priority),
     status: getChamadoStatusLabel(chamado.status),
     tecnico: chamado.assigned_to_name || '-',
+    canal: humanizeOptionLabel(chamado.opening_channel || 'sistema'),
+    unidade: chamado.unit_name || '-',
     sla: getChamadoSlaLabel(chamado),
+    tempoTotal: formatDurationSeconds(getChamadoTotalSeconds(chamado)),
+    tempoAtendimento: chamado.service_started_at ? formatDurationSeconds(getChamadoServiceSeconds(chamado)) : '-',
+    tempoEspera: formatDurationSeconds(getChamadoWaitingSeconds(chamado)),
+    tempoFechamento: chamado.resolved_at && chamado.closed_at ? formatDurationSeconds(getChamadoClosingSeconds(chamado)) : '-',
     abertura: new Date(chamado.opened_at || chamado.created_at).toLocaleDateString('pt-BR')
   }));
 }
@@ -2898,7 +2924,13 @@ function buildChamadosReportDocument() {
       <td>${escapeHtml(row.prioridade)}</td>
       <td>${escapeHtml(row.status)}</td>
       <td>${escapeHtml(row.tecnico)}</td>
+      <td>${escapeHtml(row.canal)}</td>
+      <td>${escapeHtml(row.unidade)}</td>
       <td>${escapeHtml(row.sla)}</td>
+      <td>${escapeHtml(row.tempoTotal)}</td>
+      <td>${escapeHtml(row.tempoAtendimento)}</td>
+      <td>${escapeHtml(row.tempoEspera)}</td>
+      <td>${escapeHtml(row.tempoFechamento)}</td>
       <td>${escapeHtml(row.abertura)}</td>
     </tr>
   `).join('');
@@ -2921,8 +2953,8 @@ function buildChamadosReportDocument() {
           .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; margin-bottom: 20px; }
           .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
           .card { border: 1px solid #d1d5db; border-radius: 10px; padding: 12px; background:#f8fafc; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th, td { border: 1px solid #d1d5db; padding: 7px; text-align: left; vertical-align: top; }
           th { background: #f3f4f6; }
           @media print {
             body { padding: 0; background:#fff; }
@@ -2944,6 +2976,9 @@ function buildChamadosReportDocument() {
             <div class="card"><strong>Encerrados</strong><div>${escapeHtml(summary.closed)}</div></div>
             <div class="card"><strong>Pendentes</strong><div>${escapeHtml(summary.pending)}</div></div>
             <div class="card"><strong>SLA</strong><div>${escapeHtml(summary.sla)}</div></div>
+            <div class="card"><strong>Média total</strong><div>${escapeHtml(summary.avgTotal)}</div></div>
+            <div class="card"><strong>Média atendimento</strong><div>${escapeHtml(summary.avgService)}</div></div>
+            <div class="card"><strong>Média espera</strong><div>${escapeHtml(summary.avgWaiting)}</div></div>
           </div>
           <h2>Filtros aplicados</h2>
           <div class="meta">
@@ -2961,11 +2996,17 @@ function buildChamadosReportDocument() {
                 <th>Prioridade</th>
                 <th>Status</th>
                 <th>Técnico</th>
+                <th>Canal</th>
+                <th>Unidade</th>
                 <th>SLA</th>
+                <th>Tempo total</th>
+                <th>Atendimento</th>
+                <th>Espera</th>
+                <th>Fechamento</th>
                 <th>Abertura</th>
               </tr>
             </thead>
-            <tbody>${rowsHtml || '<tr><td colspan="10">Nenhum chamado encontrado.</td></tr>'}</tbody>
+            <tbody>${rowsHtml || '<tr><td colspan="16">Nenhum chamado encontrado.</td></tr>'}</tbody>
           </table>
         </div>
         <script>
@@ -3035,7 +3076,24 @@ function exportChamadosReportExcel() {
 function exportChamadosReportCsv() {
   if (!ensureChamadosReportAccess()) return;
 
-  const headers = ['Numero', 'Solicitante', 'Setor', 'Titulo', 'Categoria', 'Prioridade', 'Status', 'Tecnico', 'SLA', 'Abertura'];
+  const headers = [
+    'Numero',
+    'Solicitante',
+    'Setor',
+    'Titulo',
+    'Categoria',
+    'Prioridade',
+    'Status',
+    'Tecnico',
+    'Canal',
+    'Unidade',
+    'SLA',
+    'Tempo total',
+    'Atendimento',
+    'Espera',
+    'Fechamento',
+    'Abertura'
+  ];
   const rows = getChamadosReportRows();
   const escapeCsvValue = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
   const csv = [
@@ -3049,7 +3107,13 @@ function exportChamadosReportCsv() {
       row.prioridade,
       row.status,
       row.tecnico,
+      row.canal,
+      row.unidade,
       row.sla,
+      row.tempoTotal,
+      row.tempoAtendimento,
+      row.tempoEspera,
+      row.tempoFechamento,
       row.abertura
     ].map(escapeCsvValue).join(';'))
   ].join('\n');
