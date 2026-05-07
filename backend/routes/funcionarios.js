@@ -127,6 +127,27 @@ router.get('/listar', authenticateToken, async (req, res) => {
 });
 
 // Obter funcionário por ID
+router.get('/me/foto', authenticateToken, async (req, res) => {
+  try {
+    const email = String(req.user?.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.json({ foto_path: null });
+    }
+
+    const connection = await pool.getConnection();
+    const [funcionarios] = await connection.query(
+      'SELECT id, nome, email, foto_path FROM funcionarios WHERE LOWER(email) = ? AND status = "ativo" LIMIT 1',
+      [email]
+    );
+
+    connection.release();
+    res.json(funcionarios[0] || { foto_path: null });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao buscar foto do funcionario' });
+  }
+});
+
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const funcionarioId = Number(req.params.id);

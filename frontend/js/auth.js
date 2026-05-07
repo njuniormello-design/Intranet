@@ -16,7 +16,7 @@ function toggleForms() {
 document.getElementById('formLogin')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const username = document.getElementById('username').value;
+  const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value;
   const messageDiv = document.getElementById('message');
 

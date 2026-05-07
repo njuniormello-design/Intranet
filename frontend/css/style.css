@@ -390,6 +390,9 @@ html, body {
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  object-position: center;
+  display: block;
+  background: #edf2f7;
 }
 
 .user-menu {

@@ -124,7 +124,18 @@ router.post('/login', [
     const password = String(req.body.password || '');
     const connection = await pool.getConnection();
 
-    const [users] = await connection.query('SELECT * FROM users WHERE username = ?', [username]);
+    let [users] = await connection.query(
+      'SELECT * FROM users WHERE username = ? OR email = ?',
+      [username, username.toLowerCase()]
+    );
+
+    if (users.length === 0 && username.includes('.')) {
+      const usernameAlias = username.split('.')[0];
+      [users] = await connection.query(
+        'SELECT * FROM users WHERE username = ?',
+        [usernameAlias]
+      );
+    }
 
     if (users.length === 0) {
       connection.release();
@@ -169,8 +180,8 @@ router.post('/change-password', authenticateToken, async (req, res) => {
   try {
     const password = String(req.body.password || '');
 
-    if (!password) {
-      return res.status(400).json({ error: 'Informe a nova senha' });
+    if (!/^[A-Za-z0-9]{6}$/.test(password)) {
+      return res.status(400).json({ error: 'Senha deve ter exatamente 6 numeros ou letras' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

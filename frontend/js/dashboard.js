@@ -2,6 +2,7 @@ const API_URL =
   window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000/api'
     : 'http://10.0.1.206:5000/api';
+const API_ORIGIN = API_URL.replace(/\/api$/, '');
 let token = localStorage.getItem('token');
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null') || {};
 
@@ -369,13 +370,30 @@ if (!token) {
 
 // Carregar dados do usuário
 window.addEventListener('load', async () => {
+  organizeChamadoFormFields();
   await hydrateCurrentUser();
   renderCurrentUser();
+  await loadCurrentUserAvatar();
   await loadChamadosMetadata();
   await loadChamadoUsers();
   applyRolePermissions();
   loadPage('chamados');
 });
+
+function organizeChamadoFormFields() {
+  const titleGroup = document.getElementById('chamadoTitle')?.closest('.form-group');
+  const requesterGroup = document.getElementById('chamadoRequester')?.closest('.form-group');
+  const categoryGroup = document.getElementById('chamadoCategory')?.closest('.form-group');
+  const subcategoryGroup = document.getElementById('chamadoSubcategory')?.closest('.form-group');
+
+  if (titleGroup && requesterGroup && titleGroup.parentElement !== requesterGroup.parentElement) {
+    titleGroup.parentElement.appendChild(requesterGroup);
+  }
+
+  if (categoryGroup && subcategoryGroup && categoryGroup.nextElementSibling !== subcategoryGroup) {
+    subcategoryGroup.parentElement.insertBefore(categoryGroup, subcategoryGroup);
+  }
+}
 
 async function hydrateCurrentUser() {
   try {
@@ -410,6 +428,31 @@ function renderCurrentUser() {
   const userRoleEl = document.getElementById('userRole');
   if (userRoleEl) {
     userRoleEl.textContent = ROLE_LABELS[getCurrentRole()] || 'Visualizador';
+  }
+}
+
+async function loadCurrentUserAvatar() {
+  const avatarEl = document.getElementById('userAvatar');
+  if (!avatarEl) return;
+
+  try {
+    const response = await fetch(`${API_URL}/funcionarios/me/foto`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) return;
+
+    const funcionario = await response.json();
+    if (funcionario?.foto_path) {
+      avatarEl.onerror = () => {
+        avatarEl.onerror = null;
+        avatarEl.src = 'https://via.placeholder.com/40';
+      };
+      avatarEl.src = `${API_ORIGIN}${funcionario.foto_path}`;
+      avatarEl.alt = funcionario.nome || currentUser.name || 'Avatar';
+    }
+  } catch (error) {
+    console.error('Erro ao carregar avatar do usuario:', error);
   }
 }
 
@@ -547,7 +590,7 @@ function loadPage(page, evt) {
   // Atualizar título
   const titles = {
     dashboard: 'Dashboard',
-    chamados: 'Gerenciamento de Chamados',
+    chamados: 'Chamados de TI',
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
     funcionarios: getFuncionariosTitle(),
@@ -1823,13 +1866,13 @@ function showEditFuncionarioForm(funcionarioId) {
     return;
   }
 
-  const funcionario = funcionariosCache.find(f => f.id === funcionarioId);
+  const funcionario = funcionariosCache.find(f => Number(f.id) === Number(funcionarioId));
   if (!funcionario) {
     alert('Funcionário não encontrado.');
     return;
   }
 
-  editingFuncionarioId = funcionarioId;
+  editingFuncionarioId = Number(funcionarioId);
   document.getElementById('funcNome').value = funcionario.nome || '';
   document.getElementById('funcRe').value = funcionario.re || '';
   document.getElementById('funcCargo').value = funcionario.cargo || '';
@@ -2083,9 +2126,15 @@ async function buscarFuncionariosProxy(termo) {
     const response = await fetch(`${API_URL}/funcionarios/buscar/${termo}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
+
+    if (!response.ok) {
+      throw new Error('Erro na API');
+    }
+
     const funcionarios = await response.json();
-    renderizarGaleriaFunc(funcionarios);
-    document.getElementById('funcionariosPaginacao').innerHTML = '<p style="text-align: center; color: #666;">Total encontrado: ' + funcionarios.length + '</p>';
+    funcionariosCache = Array.isArray(funcionarios) ? funcionarios : [];
+    renderizarGaleriaFunc(funcionariosCache);
+    document.getElementById('funcionariosPaginacao').innerHTML = '<p style="text-align: center; color: #666;">Total encontrado: ' + funcionariosCache.length + '</p>';
   } catch (error) {
     console.error('Erro na busca:', error);
     galeria.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: red;">Erro ao buscar: ' + error.message + '</p>';
@@ -2476,6 +2525,17 @@ if (formChangePassword) {
     e.preventDefault();
 
     const password = document.getElementById('newPassword')?.value || '';
+    const confirmPassword = document.getElementById('confirmNewPassword')?.value || '';
+
+    if (!/^[A-Za-z0-9]{6}$/.test(password)) {
+      alert('A senha deve ter exatamente 6 numeros ou letras.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      alert('A confirmacao da senha nao confere.');
+      return;
+    }
 
     try {
       const response = await fetch(`${API_URL}/auth/change-password`, {
@@ -2490,8 +2550,11 @@ if (formChangePassword) {
       const data = await readApiResponse(response);
 
       if (response.ok) {
-        alert(data.message || 'Senha alterada com sucesso!');
+        alert('Senha alterada com sucesso. Entre novamente com a nova senha.');
         closeChangePasswordModal();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = 'index.html';
       } else {
         const errorMessage = String(data.error || '');
         if (response.status === 404 || errorMessage.includes('Cannot POST') || errorMessage.includes('<!DOCTYPE html>')) {
