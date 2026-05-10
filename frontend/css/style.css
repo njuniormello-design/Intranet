@@ -66,20 +66,40 @@ html, body {
 .brand-mark {
   width: 56px;
   height: 56px;
-  border-radius: 14px;
+  border-radius: 18px;
   display: grid;
   place-items: center;
-  background: #6abc4d;
-  box-shadow: 0 10px 30px rgba(36, 51, 43, 0.14);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(163, 230, 53, 0.35), transparent 55%),
+    linear-gradient(145deg, #0f172a, #111827);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #84cc16;
   flex: 0 0 auto;
-  overflow: hidden;
 }
 
-.brand-mark img {
-  width: 100%;
-  height: 100%;
+.brand-mark svg {
+  width: 34px;
+  height: 34px;
   display: block;
-  object-fit: cover;
+}
+
+.brand-ring,
+.brand-power {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brand-ring {
+  stroke-width: 5.5;
+  stroke-dasharray: 102 22;
+}
+
+.brand-power {
+  stroke-width: 5.5;
 }
 
 .brand-copy h1,
@@ -500,6 +520,19 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.quick-link-logo--portal {
+  overflow: hidden;
+  background: #6abc4d;
+  box-shadow: 0 10px 24px rgba(36, 51, 43, 0.12);
+}
+
+.quick-link-logo--portal img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .quick-link-logo--roover {
