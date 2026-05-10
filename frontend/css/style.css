@@ -524,15 +524,15 @@ html, body {
 
 .quick-link-logo--portal {
   overflow: hidden;
-  background: #6abc4d;
-  box-shadow: 0 10px 24px rgba(36, 51, 43, 0.12);
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(36, 51, 43, 0.08);
 }
 
 .quick-link-logo--portal img {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .quick-link-logo--roover {
