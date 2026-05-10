@@ -527,6 +527,13 @@ html, body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+.quick-link-logo--protheus,
+.quick-link-logo--exati,
+.quick-link-logo--argus {
+  background: transparent;
+  box-shadow: none;
+}
+
 .quick-link-logo--sei {
   width: auto;
   min-width: 52px;
@@ -589,6 +596,109 @@ html, body {
 
 .roover-arrow {
   fill: #ffffff;
+}
+
+.protheus-svg,
+.exati-svg,
+.argus-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.protheus-bg {
+  fill: #5b2aa5;
+}
+
+.protheus-mark {
+  fill: #ffffff;
+}
+
+.protheus-ring {
+  fill: none;
+  stroke: #5b2aa5;
+  stroke-width: 24;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.protheus-glyph {
+  fill: #5b2aa5;
+}
+
+.protheus-wordmark,
+.protheus-subword {
+  fill: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+.protheus-wordmark {
+  font-size: 110px;
+}
+
+.protheus-subword {
+  font-size: 56px;
+  font-style: italic;
+}
+
+.exati-bg {
+  fill: #ffffff;
+}
+
+.exati-wordmark {
+  fill: #27236d;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 142px;
+  font-weight: 700;
+  letter-spacing: -0.08em;
+}
+
+.exati-corner--blue {
+  fill: none;
+  stroke: #1ea5f5;
+  stroke-width: 12;
+  stroke-linejoin: round;
+}
+
+.exati-corner--outline {
+  fill: none;
+  stroke: #27236d;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.exati-square--blue {
+  fill: #1ea5f5;
+}
+
+.exati-square--light {
+  fill: #56b6f7;
+}
+
+.argus-bg {
+  fill: #ffffff;
+}
+
+.argus-wordmark {
+  fill: #111111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 122px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.argus-arc {
+  fill: none;
+  stroke: #3e73cc;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+
+.argus-arc--thin {
+  stroke-width: 6;
 }
 
 .quick-link-logo--roover .roover-svg {
