@@ -685,20 +685,16 @@ html, body {
 .argus-wordmark {
   fill: #111111;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 122px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  font-size: 136px;
+  font-weight: 800;
+  letter-spacing: -0.08em;
 }
 
 .argus-arc {
   fill: none;
   stroke: #3e73cc;
-  stroke-width: 12;
+  stroke-width: 16;
   stroke-linecap: round;
-}
-
-.argus-arc--thin {
-  stroke-width: 6;
 }
 
 .quick-link-logo--roover .roover-svg {
