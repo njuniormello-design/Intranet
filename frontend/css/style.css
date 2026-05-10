@@ -534,6 +534,11 @@ html, body {
   box-shadow: none;
 }
 
+.quick-link-logo--protheus {
+  width: 112px;
+  height: 42px;
+}
+
 .quick-link-logo--sei {
   width: auto;
   min-width: 52px;
@@ -607,24 +612,30 @@ html, body {
   overflow: visible;
 }
 
-.protheus-bg {
-  fill: #5b2aa5;
+.protheus-mark {
+  fill: #0c5f8f;
 }
 
-.protheus-mark {
+.protheus-mark-inner {
   fill: #ffffff;
 }
 
-.protheus-ring {
-  fill: none;
-  stroke: #5b2aa5;
-  stroke-width: 24;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.protheus-wordmark,
+.protheus-subword {
+  fill: #0c5f8f;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: -0.05em;
 }
 
-.protheus-glyph {
-  fill: #5b2aa5;
+.protheus-wordmark {
+  font-size: 52px;
+  font-weight: 800;
+}
+
+.protheus-subword {
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 700;
 }
 
 .exati-bg {
