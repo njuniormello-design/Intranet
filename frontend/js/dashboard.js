@@ -115,6 +115,23 @@ function getChamadoUserName(chamado) {
   return currentUser.name || currentUser.username || 'Usuário';
 }
 
+function getUserValidationLabel(status) {
+  const labels = {
+    nao_enviado: 'Nao enviado para validacao',
+    pendente: 'Aguardando validacao do usuario',
+    aprovado: 'Aprovado pelo usuario',
+    recusado: 'Recusado pelo usuario',
+    expirado: 'Fechado automaticamente por prazo'
+  };
+  return labels[status] || humanizeOptionLabel(status || 'nao_enviado');
+}
+
+function canValidateChamadoSolution(chamado) {
+  return Number(chamado?.user_id) === Number(currentUser?.id)
+    && chamado?.status === 'resolvido'
+    && chamado?.user_validation_status === 'pendente';
+}
+
 function getChamadoPriorityRank(priority) {
   const normalized = normalizeSearchText(priority);
   if (normalized === 'urgente') return 0;
@@ -910,7 +927,7 @@ async function showChamadoDetails(chamadoId) {
           <div class="form-group" style="flex: 1; min-width: 180px;">
             <label for="editChamadoStatus">Status</label>
             <select id="editChamadoStatus" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-              ${['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'fechado', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
+              ${['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'validado_usuario', 'fechado', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -953,7 +970,7 @@ async function salvarEdicaoChamado(chamadoId) {
   if (!['baixa', 'normal', 'alta', 'urgente'].includes(priority)) {
     validationErrors.push('Selecione uma prioridade válida');
   }
-  if (!['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'fechado', 'cancelado', 'reaberto'].includes(status)) {
+      if (!['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'validado_usuario', 'fechado', 'cancelado', 'reaberto'].includes(status)) {
     validationErrors.push('Selecione um status válido');
   }
 
@@ -1131,7 +1148,7 @@ async function showChamadoDetails(chamadoId) {
           <div class="form-group" style="flex:1; min-width:180px;">
             <label for="editChamadoStatus">Status</label>
             <select id="editChamadoStatus" style="width:100%; padding:8px;">
-              ${['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'fechado', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
+              ${['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'resolvido', 'validado_usuario', 'fechado', 'cancelado', 'reaberto'].map(status => `<option value="${status}" ${chamado.status === status ? 'selected' : ''}>${getChamadoStatusLabel(status)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group" style="flex:1; min-width:180px;">
@@ -1174,11 +1191,47 @@ async function showChamadoDetails(chamadoId) {
         </div>
     ` : '';
 
+    const treatmentSummary = (chamado.action_taken || chamado.solution_applied || chamado.user_validation_status) ? `
+      <div style="margin-top: 20px; padding: 16px; border: 1px solid #dbe4f0; border-radius: 10px; background: #ffffff;">
+        <h3 style="margin-bottom: 12px;">Solucao do tecnico</h3>
+        <p><strong>Acao executada:</strong> ${escapeHtml(chamado.action_taken || '-')}</p>
+        <p><strong>Solucao aplicada:</strong> ${escapeHtml(chamado.solution_applied || '-')}</p>
+        <p><strong>Validacao do usuario:</strong> ${getUserValidationLabel(chamado.user_validation_status)}</p>
+        ${chamado.user_validation_comment ? `<p><strong>Situacao descrita:</strong> ${escapeHtml(chamado.user_validation_comment)}</p>` : ''}
+      </div>
+    ` : '';
+
+    const validationSection = canValidateChamadoSolution(chamado) ? `
+      <div style="margin-top: 20px; padding: 16px; border: 1px solid #bfdbfe; border-radius: 10px; background: #eff6ff;">
+        <h3 style="margin-bottom: 12px;">Validar solucao</h3>
+        <div class="form-group">
+          <label for="chamadoValidationComment">Descreva a situacao, principalmente se ainda nao foi resolvida</label>
+          <textarea id="chamadoValidationComment" rows="3" maxlength="500" style="width:100%; padding:8px;"></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+          <button class="btn btn-secondary" onclick="validarSolucaoChamado(${chamado.id}, false)">Nao validar e reabrir</button>
+          <button class="btn btn-primary" onclick="validarSolucaoChamado(${chamado.id}, true)">Validar solucao</button>
+        </div>
+      </div>
+    ` : '';
+
     const editSection = canManageCatalogs() ? `
       <div style="margin-top: 20px; padding: 16px; border: 1px solid #dbe4f0; border-radius: 10px; background: #f8fbff;">
         <h3 style="margin-bottom: 12px;">Tratativa e fechamento</h3>
         <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
           ${adminTicketFields}
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoCategory">Categoria</label>
+            <select id="editChamadoCategory" style="width:100%; padding:8px;">
+              ${buildChamadoCategoryOptionsHtml(chamado.category || '')}
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="editChamadoSubcategory">Subcategoria</label>
+            <select id="editChamadoSubcategory" style="width:100%; padding:8px;">
+              ${buildChamadoSubcategoryOptionsHtml(chamado.category || '', chamado.subcategory || '')}
+            </select>
+          </div>
           <div class="form-group" style="flex:1; min-width:180px;">
             <label for="editChamadoPriority">Prioridade</label>
             <select id="editChamadoPriority" style="width:100%; padding:8px;">
@@ -1284,6 +1337,8 @@ async function showChamadoDetails(chamadoId) {
       <p><strong>Ativos vinculados:</strong> ${[chamado.asset_tag, chamado.serial_number, chamado.hostname].filter(Boolean).join(' / ') || '-'}</p>
       <p><strong>Sistema afetado:</strong> ${chamado.affected_system || '-'}</p>
       <p><strong>Recorrência:</strong> ${Number(chamado.recurrence_flag || 0) === 1 ? `Sim${chamado.recurrence_type ? ` - ${chamado.recurrence_type}` : ''}` : 'Não'}</p>
+      ${treatmentSummary}
+      ${validationSection}
       ${attachmentsHTML}
       ${historyHTML}
       ${editSection}
@@ -1292,6 +1347,11 @@ async function showChamadoDetails(chamadoId) {
     const editAssignedTo = document.getElementById('editChamadoAssignedTo');
     if (editAssignedTo) {
       editAssignedTo.value = chamado.assigned_to || '';
+    }
+
+    const editCategory = document.getElementById('editChamadoCategory');
+    if (editCategory) {
+      editCategory.addEventListener('change', event => syncEditChamadoSubcategoryOptions(event.target.value));
     }
     modal.style.display = 'flex';
   } catch (error) {
@@ -1308,6 +1368,8 @@ async function salvarEdicaoChamado(chamadoId) {
 
   try {
     const payload = {
+      category: document.getElementById('editChamadoCategory')?.value || '',
+      subcategory: document.getElementById('editChamadoSubcategory')?.value || '',
       priority: document.getElementById('editChamadoPriority')?.value || '',
       attendance_type: document.getElementById('editChamadoAttendanceType')?.value || '',
       root_cause: document.getElementById('editChamadoRootCause')?.value || '',
@@ -1327,6 +1389,21 @@ async function salvarEdicaoChamado(chamadoId) {
       payload.serial_number = document.getElementById('editChamadoSerial')?.value || '';
       payload.hostname = document.getElementById('editChamadoHostname')?.value || '';
       payload.recurrence_flag = document.getElementById('editChamadoRecurrence')?.value || '0';
+    }
+
+    if (['resolvido', 'fechado', 'concluido', 'encerrado'].includes(payload.status)) {
+      const missingFields = [];
+      if (!payload.category) missingFields.push('categoria');
+      if (!payload.subcategory) missingFields.push('subcategoria');
+      if (!payload.attendance_type) missingFields.push('tipo de atendimento');
+      if (!payload.root_cause) missingFields.push('causa');
+      if (!payload.action_taken) missingFields.push('acao executada');
+      if (!payload.solution_applied) missingFields.push('solucao aplicada');
+
+      if (missingFields.length) {
+        alert(`Para resolver o chamado, preencha: ${missingFields.join(', ')}.`);
+        return;
+      }
     }
 
     if (['aguardando_usuario', 'aguardando_fornecedor'].includes(payload.status) && !payload.sla_pause_reason) {
@@ -1353,6 +1430,35 @@ async function salvarEdicaoChamado(chamadoId) {
   } catch (error) {
     console.error('Erro ao atualizar chamado:', error);
     alert('Erro ao atualizar chamado: ' + error.message);
+  }
+}
+
+async function validarSolucaoChamado(chamadoId, approved) {
+  const comment = document.getElementById('chamadoValidationComment')?.value?.trim() || '';
+  if (!approved && comment.length < 5) {
+    alert('Descreva o que ainda nao foi resolvido para reabrir o chamado.');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/chamados/${chamadoId}/validation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ approved, comment })
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || 'Erro ao validar solucao');
+    }
+
+    alert(data?.message || (approved ? 'Solucao validada. Aguardando fechamento pelo administrador.' : 'Chamado reaberto para nova tratativa.'));
+    await loadChamados();
+    await showChamadoDetails(chamadoId);
+  } catch (error) {
+    alert('Erro ao validar solucao: ' + error.message);
   }
 }
 
@@ -2650,6 +2756,7 @@ function getChamadoStatusLabel(status) {
     aguardando_fornecedor: 'Aguardando fornecedor',
     pausado: 'Pausado',
     resolvido: 'Resolvido',
+    validado_usuario: 'Validado pelo usuario',
     fechado: 'Fechado',
     concluido: 'Concluído',
     encerrado: 'Encerrado',
@@ -2676,6 +2783,22 @@ function buildChamadoCategoryOptions(selectId, includeEmptyLabel = 'Selecione...
   ].join('');
 }
 
+function buildChamadoCategoryOptionsHtml(selectedCategory = '', includeEmptyLabel = 'Selecione...') {
+  const categories = Object.keys(chamadosMetadata?.categories || DEFAULT_CHAMADO_METADATA.categories);
+  return [
+    `<option value="">${includeEmptyLabel}</option>`,
+    ...categories.map(category => `<option value="${category}" ${selectedCategory === category ? 'selected' : ''}>${category}</option>`)
+  ].join('');
+}
+
+function buildChamadoSubcategoryOptionsHtml(selectedCategory = '', selectedSubcategory = '') {
+  const subcategories = (chamadosMetadata?.categories?.[selectedCategory] || []);
+  return [
+    '<option value="">Selecione...</option>',
+    ...subcategories.map(subcategory => `<option value="${subcategory}" ${selectedSubcategory === subcategory ? 'selected' : ''}>${humanizeOptionLabel(subcategory)}</option>`)
+  ].join('');
+}
+
 function syncChamadoSubcategoryOptions(selectedCategory = '', selectedSubcategory = '') {
   const subcategorySelect = document.getElementById('chamadoSubcategory');
   if (!subcategorySelect) return;
@@ -2690,6 +2813,14 @@ function syncChamadoSubcategoryOptions(selectedCategory = '', selectedSubcategor
   if (selectedSubcategory && subcategories.includes(selectedSubcategory)) {
     subcategorySelect.value = selectedSubcategory;
   }
+}
+
+function syncEditChamadoSubcategoryOptions(selectedCategory = '', selectedSubcategory = '') {
+  const subcategorySelect = document.getElementById('editChamadoSubcategory');
+  if (!subcategorySelect) return;
+
+  const categoryKey = selectedCategory || document.getElementById('editChamadoCategory')?.value || '';
+  subcategorySelect.innerHTML = buildChamadoSubcategoryOptionsHtml(categoryKey, selectedSubcategory);
 }
 
 function populateUsuariosSelects() {

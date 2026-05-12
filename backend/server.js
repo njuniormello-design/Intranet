@@ -65,6 +65,8 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
+const USER_VALIDATION_AUTO_CLOSE_DAYS = 7;
+const AUTO_CLOSE_INTERVAL_MS = 60 * 60 * 1000;
 
 async function ensureDatabaseUpdates() {
   const connection = await pool.getConnection();
@@ -173,6 +175,9 @@ async function ensureDatabaseUpdates() {
     await ensureColumn('chamados', 'external_service', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('chamados', 'final_status', 'VARCHAR(50) NULL');
     await ensureColumn('chamados', 'closure_notes', 'TEXT NULL');
+    await ensureColumn('chamados', 'user_validation_status', "VARCHAR(30) NOT NULL DEFAULT 'nao_enviado'");
+    await ensureColumn('chamados', 'user_validation_comment', 'VARCHAR(500) NULL');
+    await ensureColumn('chamados', 'user_validated_at', 'DATETIME NULL');
     await ensureColumn('chamados', 'satisfaction_level', 'VARCHAR(40) NULL');
     await ensureColumn('chamados', 'satisfaction_score', 'TINYINT NULL');
     await ensureColumn('chamados', 'satisfaction_comment', 'VARCHAR(500) NULL');
@@ -188,6 +193,7 @@ async function ensureDatabaseUpdates() {
     await ensureColumn('chamados', 'affected_system', 'VARCHAR(100) NULL');
 
     await connection.query('UPDATE chamados SET opened_at = COALESCE(opened_at, created_at) WHERE opened_at IS NULL');
+    await connection.query("UPDATE chamados SET status = 'validado_usuario' WHERE status = 'resolvido' AND user_validation_status = 'aprovado'");
     await ensureIndex('chamados', 'idx_ticket_number', '(ticket_number)');
     await ensureIndex('chamados', 'idx_chamados_category', '(category)');
     await ensureIndex('chamados', 'idx_chamados_subcategory', '(subcategory)');
@@ -232,7 +238,73 @@ async function ensureDatabaseUpdates() {
   }
 }
 
+async function closeExpiredUserValidationChamados() {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [expiredChamados] = await connection.query(
+      `SELECT id, status
+         FROM chamados
+        WHERE status = 'resolvido'
+          AND user_validation_status = 'pendente'
+          AND resolved_at IS NOT NULL
+          AND resolved_at <= DATE_SUB(NOW(), INTERVAL ? DAY)
+        FOR UPDATE`,
+      [USER_VALIDATION_AUTO_CLOSE_DAYS]
+    );
+
+    for (const chamado of expiredChamados) {
+      await connection.query(
+        `UPDATE chamados
+            SET status = 'fechado',
+                final_status = 'fechado',
+                closed_at = NOW(),
+                user_validation_status = 'expirado',
+                user_validation_comment = ?,
+                updated_at = NOW()
+          WHERE id = ?
+            AND status = 'resolvido'
+            AND user_validation_status = 'pendente'`,
+        [`Fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias sem validacao do usuario`, chamado.id]
+      );
+
+      await connection.query(
+        `INSERT INTO chamado_historico
+         (chamado_id, changed_by, action_type, from_status, to_status, observation, created_at)
+         VALUES (?, NULL, 'fechamento_automatico', ?, 'fechado', ?, NOW())`,
+        [
+          chamado.id,
+          chamado.status,
+          `Chamado fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias corridos sem validacao do usuario`
+        ]
+      );
+    }
+
+    await connection.commit();
+
+    if (expiredChamados.length) {
+      console.log(`${expiredChamados.length} chamado(s) fechado(s) automaticamente por falta de validacao do usuario.`);
+    }
+  } catch (error) {
+    await connection.rollback();
+    console.error('Erro ao fechar chamados expirados:', error);
+  } finally {
+    connection.release();
+  }
+}
+
+function scheduleExpiredUserValidationAutoClose() {
+  closeExpiredUserValidationChamados();
+  const interval = setInterval(closeExpiredUserValidationChamados, AUTO_CLOSE_INTERVAL_MS);
+  interval.unref?.();
+}
+
 ensureDatabaseUpdates()
+  .then(() => {
+    scheduleExpiredUserValidationAutoClose();
+  })
   .catch((error) => {
     console.error('Erro ao aplicar atualizações do banco:', error);
   })

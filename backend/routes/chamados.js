@@ -19,6 +19,7 @@ const CHAMADO_STATUSES = [
   'aguardando_usuario',
   'aguardando_fornecedor',
   'resolvido',
+  'validado_usuario',
   'fechado',
   'pendente',
   'em_andamento',
@@ -30,7 +31,7 @@ const CHAMADO_STATUSES = [
 ];
 
 const CHAMADO_STATUS_GROUPS = {
-  ativos: ['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'reaberto', 'pendente', 'em_andamento', 'pausado'],
+  ativos: ['triagem', 'aberto', 'em_atendimento', 'aguardando_usuario', 'aguardando_fornecedor', 'validado_usuario', 'reaberto', 'pendente', 'em_andamento', 'pausado'],
   aberto: ['aberto', 'triagem'],
   pendente: ['aguardando_usuario', 'aguardando_fornecedor', 'pendente', 'pausado'],
   em_atendimento: ['em_atendimento', 'em_andamento'],
@@ -46,6 +47,7 @@ const OPENING_CHANNELS = ['telefone', 'whatsapp', 'email', 'presencial', 'sistem
 const SUPPORT_LEVELS = ['N1', 'N2', 'N3'];
 const ATTENDANCE_TYPES = ['remoto', 'presencial', 'externo'];
 const SOLUTION_TYPES = ['definitiva', 'paliativa'];
+const USER_VALIDATION_STATUSES = ['nao_enviado', 'pendente', 'aprovado', 'recusado', 'expirado'];
 const RESOLVED_STATUSES = ['resolvido'];
 const CLOSED_STATUSES = ['fechado', 'concluido', 'encerrado', 'cancelado'];
 const FIRST_RESPONSE_STATUSES = ['triagem', 'em_atendimento', 'em_andamento', 'resolvido', 'fechado', 'concluido', 'encerrado'];
@@ -334,6 +336,12 @@ function addStatusTimingUpdates({ chamado, nextStatus, updateFields, updateValue
     updateValues.push(getSlaFlagWithPause(now, chamado.resolution_due_at, chamado));
   }
 
+  if (RESOLVED_STATUSES.includes(nextStatus)) {
+    updateFields.push("user_validation_status = 'pendente'");
+    updateFields.push('user_validation_comment = NULL');
+    updateFields.push('user_validated_at = NULL');
+  }
+
   if (CLOSED_STATUSES.includes(nextStatus)) {
     if (!chamado.resolved_at) {
       updateFields.push('resolved_at = ?');
@@ -347,6 +355,9 @@ function addStatusTimingUpdates({ chamado, nextStatus, updateFields, updateValue
     updateValues.push(nextStatus);
     updateFields.push('resolved_by = ?');
     updateValues.push(userId);
+    updateFields.push("user_validation_status = IF(user_validation_status = 'pendente', 'aprovado', user_validation_status)");
+    updateFields.push('user_validated_at = COALESCE(user_validated_at, ?)');
+    updateValues.push(toSqlDateTime(now));
   }
 }
 
@@ -449,8 +460,18 @@ function buildChamadoFilters(req, tableAlias = 'c') {
   const toDate = parseChamadoDate(req.query.to, true);
 
   if (statusGroup !== 'todos') {
-    where.push(`${alias}status IN (${statuses.map(() => '?').join(', ')})`);
-    params.push(...statuses);
+    if (statusGroup === 'ativos') {
+      if (isPrivileged(req.user)) {
+        where.push(`(${alias}status IN (${statuses.map(() => '?').join(', ')}) OR (${alias}status = ? AND ${alias}user_validation_status = ?))`);
+        params.push(...statuses, 'resolvido', 'pendente');
+      } else {
+        where.push(`(${alias}status IN (${statuses.map(() => '?').join(', ')}) OR (${alias}status = ? AND ${alias}user_validation_status = ?))`);
+        params.push(...statuses, 'resolvido', 'pendente');
+      }
+    } else {
+      where.push(`${alias}status IN (${statuses.map(() => '?').join(', ')})`);
+      params.push(...statuses);
+    }
   }
 
   if (fromDate && toDate && fromDate > toDate) {
@@ -598,6 +619,7 @@ router.get('/metadata', authenticateToken, (req, res) => {
     supportLevels: SUPPORT_LEVELS,
     attendanceTypes: ATTENDANCE_TYPES,
     solutionTypes: SOLUTION_TYPES,
+    userValidationStatuses: USER_VALIDATION_STATUSES,
     categories: {
       Hardware: ['computador_nao_liga', 'lentidao', 'superaquecimento', 'monitor', 'impressora'],
       Software: ['erro_no_sistema', 'instalacao', 'atualizacao', 'licenca'],
@@ -974,6 +996,15 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin'), [
       return res.status(400).json({ error: 'Informe o motivo de pausa do SLA' });
     }
 
+    if (RESOLVED_STATUSES.includes(nextStatus) || CLOSED_STATUSES.includes(nextStatus)) {
+      if (!chamado.category || !chamado.subcategory || !chamado.root_cause || !chamado.action_taken || !chamado.solution_applied || !chamado.attendance_type) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: 'Para fechar o chamado, informe categoria, subcategoria, causa, acao executada, solucao aplicada e tipo de atendimento'
+        });
+      }
+    }
+
     addStatusTimingUpdates({ chamado, nextStatus, updateFields, updateValues, now, userId: req.user.id, pauseReason });
 
     updateValues.push(chamadoId);
@@ -1026,6 +1057,9 @@ router.post('/:id/reopen', authenticateToken, authorizeRoles('admin'), [
               final_status = NULL,
               sla_paused_at = NULL,
               sla_pause_reason = NULL,
+              user_validation_status = 'nao_enviado',
+              user_validation_comment = NULL,
+              user_validated_at = NULL,
               last_reopen_reason = ?,
               reopen_count = COALESCE(reopen_count, 0) + 1,
               updated_at = NOW()
@@ -1048,6 +1082,98 @@ router.post('/:id/reopen', authenticateToken, authorizeRoles('admin'), [
       return res.status(error.statusCode).json({ error: error.message });
     }
     res.status(500).json({ error: 'Erro ao reabrir chamado' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+router.post('/:id/validation', authenticateToken, [
+  body('approved').isBoolean().withMessage('Informe se a solucao foi aprovada'),
+  body('comment').optional({ checkFalsy: true }).trim().isLength({ min: 5, max: 500 }).withMessage('A situacao descrita deve ter entre 5 e 500 caracteres')
+], async (req, res) => {
+  let connection;
+  try {
+    if (!validateRequest([], req, res)) return;
+
+    const chamadoId = Number(req.params.id);
+    if (!Number.isInteger(chamadoId) || chamadoId <= 0) {
+      return res.status(400).json({ error: 'ID invalido' });
+    }
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const chamado = await fetchChamadoById(connection, chamadoId);
+    assertChamadoAccess(req, chamado);
+
+    if (chamado.user_id !== req.user.id) {
+      await connection.rollback();
+      return res.status(403).json({ error: 'Somente o solicitante pode validar a solucao' });
+    }
+
+    if (chamado.status !== 'resolvido' || chamado.user_validation_status !== 'pendente') {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Este chamado nao esta pendente de validacao do usuario' });
+    }
+
+    const approved = normalizeBoolean(req.body.approved);
+    const comment = normalizeString(req.body.comment, 500);
+    if (!approved && !comment) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Descreva o que ainda nao foi resolvido' });
+    }
+
+    if (approved) {
+      await connection.query(
+        `UPDATE chamados
+            SET status = 'validado_usuario',
+                user_validation_status = 'aprovado',
+                user_validation_comment = ?,
+                user_validated_at = NOW(),
+                updated_at = NOW()
+          WHERE id = ?`,
+        [comment, chamadoId]
+      );
+
+      await recordHistory(connection, chamadoId, req.user.id, 'validacao_usuario', {
+        fromStatus: chamado.status,
+        toStatus: 'validado_usuario',
+        observation: comment || 'Solucao aprovada pelo solicitante. Aguardando fechamento pelo administrador'
+      });
+    } else {
+      await connection.query(
+        `UPDATE chamados
+            SET status = 'reaberto',
+                closed_at = NULL,
+                final_status = NULL,
+                sla_paused_at = NULL,
+                sla_pause_reason = NULL,
+                user_validation_status = 'recusado',
+                user_validation_comment = ?,
+                user_validated_at = NOW(),
+                last_reopen_reason = ?,
+                reopen_count = COALESCE(reopen_count, 0) + 1,
+                updated_at = NOW()
+          WHERE id = ?`,
+        [comment, comment, chamadoId]
+      );
+
+      await recordHistory(connection, chamadoId, req.user.id, 'validacao_usuario_recusada', {
+        fromStatus: chamado.status,
+        toStatus: 'reaberto',
+        observation: comment
+      });
+    }
+
+    await connection.commit();
+    res.json({ message: approved ? 'Solucao aprovada. O chamado aguardara fechamento pelo administrador' : 'Chamado reaberto para nova tratativa' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error(error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Erro ao validar solucao do chamado' });
   } finally {
     if (connection) connection.release();
   }
@@ -1233,13 +1359,14 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async 
         const category = fields.category || chamado.category;
         const subcategory = fields.subcategory || chamado.subcategory;
         const rootCause = fields.root_cause || chamado.root_cause;
+        const actionTaken = fields.action_taken || chamado.action_taken;
         const solutionApplied = fields.solution_applied || chamado.solution_applied;
         const attendanceType = fields.attendance_type || chamado.attendance_type;
 
-        if (!category || !subcategory || !rootCause || !solutionApplied || !attendanceType) {
+        if (!category || !subcategory || !rootCause || !actionTaken || !solutionApplied || !attendanceType) {
           await connection.rollback();
           return res.status(400).json({
-            error: 'Para fechar o chamado, informe categoria, subcategoria, causa, solucao aplicada e tipo de atendimento'
+            error: 'Para fechar o chamado, informe categoria, subcategoria, causa, acao executada, solucao aplicada e tipo de atendimento'
           });
         }
       } else {

@@ -990,6 +990,11 @@ html, body {
   color: #166534;
 }
 
+.status-badge.validado_usuario {
+  background-color: #e0f2fe;
+  color: #075985;
+}
+
 .status-badge.fechado {
   background-color: #dcfce7;
   color: #166534;
