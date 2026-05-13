@@ -560,6 +560,18 @@ html, body {
   box-shadow: none;
 }
 
+.quick-link-logo--argus {
+  width: 82px;
+  height: 54px;
+}
+
+.quick-link-logo--argus img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
 .sei-wordmark {
   display: inline-flex;
   align-items: flex-end;
@@ -617,8 +629,7 @@ html, body {
 }
 
 .protheus-svg,
-.exati-svg,
-.argus-svg {
+.exati-svg {
   width: 100%;
   height: 100%;
   display: block;
@@ -683,25 +694,6 @@ html, body {
 
 .exati-square--light {
   fill: #56b6f7;
-}
-
-.argus-bg {
-  fill: #ffffff;
-}
-
-.argus-wordmark {
-  fill: #3e73cc;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 136px;
-  font-weight: 800;
-  letter-spacing: -0.08em;
-}
-
-.argus-arc {
-  fill: none;
-  stroke: #3e73cc;
-  stroke-width: 16;
-  stroke-linecap: round;
 }
 
 .quick-link-logo--roover .roover-svg {
