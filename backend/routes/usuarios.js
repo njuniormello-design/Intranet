@@ -10,7 +10,7 @@ const buildGeneratedEmail = (username) => {
   return `${cleaned || 'usuario'}@local.intranet`;
 };
 
-router.get('/list', authenticateToken, authorizeRoles('admin', 'creator'), async (req, res) => {
+router.get('/list', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const connection = await pool.getConnection();
     const [users] = await connection.query(
@@ -27,7 +27,7 @@ router.get('/list', authenticateToken, authorizeRoles('admin', 'creator'), async
 router.post(
   '/create',
   authenticateToken,
-  authorizeRoles('admin', 'creator'),
+  authorizeRoles('admin'),
   [
     body('username').trim().isLength({ min: 3, max: 30 }).matches(/^[a-zA-Z0-9_.-]+$/).withMessage('Login deve ter entre 3 e 30 caracteres e usar apenas letras, numeros, ponto, underline ou hifen'),
     body('password').isLength({ min: 6, max: 72 }).withMessage('Senha deve ter entre 6 e 72 caracteres'),
@@ -46,16 +46,6 @@ router.post(
       const username = String(req.body.username || '').trim();
       const password = String(req.body.password || '');
       const requestedRole = normalizeRole(req.body.role);
-      const currentRole = normalizeRole(req.user.role);
-
-      if (currentRole === 'creator' && !['viewer', 'creator'].includes(requestedRole)) {
-        return res.status(403).json({ error: 'Criadores podem criar apenas usuarios visualizador ou criador' });
-      }
-
-      if (currentRole !== 'admin' && requestedRole === 'admin') {
-        return res.status(403).json({ error: 'Apenas administradores podem criar usuarios admin' });
-      }
-
       const role = requestedRole;
       const email = req.body.email ? String(req.body.email).trim().toLowerCase() : buildGeneratedEmail(username);
       const name = req.body.name ? String(req.body.name).trim() : username;

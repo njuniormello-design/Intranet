@@ -11,6 +11,10 @@ function canManageCatalogs(role) {
     return ['admin', 'creator'].includes(normalizeRole(role));
 }
 
+function canManageFuncionarios(role) {
+    return ['admin', 'creator'].includes(normalizeRole(role));
+}
+
 function carregarSidebar() {
     const sidebar = document.getElementById('sidebar-container');
     if (!sidebar) return;
@@ -92,20 +96,21 @@ async function hydrateSidebarUser(currentUser, token) {
 function applyPermissionVisibility(user) {
     const role = normalizeRole(user?.role);
     const isManager = canManageCatalogs(role);
+    const canManageEmployees = canManageFuncionarios(role);
 
     const funcionarioFormCard = document.getElementById('funcionarioFormCard');
     if (funcionarioFormCard) {
-        funcionarioFormCard.style.display = isManager ? '' : 'none';
+        funcionarioFormCard.style.display = canManageEmployees ? '' : 'none';
     }
 
     const formFuncionario = document.getElementById('formFuncionario');
     if (formFuncionario) {
         const submitBtn = formFuncionario.querySelector('button[type="submit"]');
         if (submitBtn) {
-            submitBtn.style.display = isManager ? '' : 'none';
+            submitBtn.style.display = canManageEmployees ? '' : 'none';
         }
 
-        if (!isManager) {
+        if (!canManageEmployees) {
             const formGroups = formFuncionario.querySelectorAll('.form-group');
             formGroups.forEach(group => {
                 const labels = group.querySelectorAll('label');
@@ -118,11 +123,11 @@ function applyPermissionVisibility(user) {
 
     const btnNovoFuncionario = document.getElementById('btnNovoFuncionario');
     if (btnNovoFuncionario) {
-        btnNovoFuncionario.style.display = isManager ? '' : 'none';
+        btnNovoFuncionario.style.display = canManageEmployees ? '' : 'none';
     }
 
     const newFuncionarioForm = document.getElementById('newFuncionarioForm');
-    if (newFuncionarioForm && !isManager) {
+    if (newFuncionarioForm && !canManageEmployees) {
         newFuncionarioForm.style.display = 'none';
     }
 

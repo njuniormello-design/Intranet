@@ -148,7 +148,7 @@ function normalizeBoolean(value) {
 }
 
 function isPrivileged(user) {
-  return ['admin', 'creator'].includes(String(user?.role || '').toLowerCase());
+  return isAdminUser(user);
 }
 
 function isAdminUser(user) {
@@ -830,7 +830,7 @@ router.get('/my-chamados', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/all', authenticateToken, authorizeRoles('admin', 'creator'), async (req, res) => {
+router.get('/all', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   let connection;
   try {
     connection = await pool.getConnection();
@@ -1179,7 +1179,7 @@ router.post('/:id/validation', authenticateToken, [
   }
 });
 
-router.put('/:id', authenticateToken, authorizeRoles('admin', 'creator'), async (req, res) => {
+router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   let connection;
   try {
     const chamadoId = Number(req.params.id);

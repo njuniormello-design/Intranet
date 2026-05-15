@@ -52,14 +52,18 @@ function getCurrentRole() {
 }
 
 function canAccessUsers() {
-  return ['admin', 'creator'].includes(getCurrentRole());
+  return isAdmin();
 }
 
 function getAllowedUserRoles() {
-  return getCurrentRole() === 'admin' ? ['viewer', 'creator', 'admin'] : ['viewer', 'creator'];
+  return isAdmin() ? ['viewer', 'creator', 'admin'] : [];
 }
 
 function canManageCatalogs() {
+  return ['admin', 'creator'].includes(getCurrentRole());
+}
+
+function canManageFuncionarios() {
   return ['admin', 'creator'].includes(getCurrentRole());
 }
 
@@ -538,11 +542,11 @@ function applyRolePermissions() {
 
   const btnNovoFuncionario = document.getElementById('btnNovoFuncionario');
   if (btnNovoFuncionario) {
-    btnNovoFuncionario.style.display = canManageCatalogs() ? '' : 'none';
+    btnNovoFuncionario.style.display = canManageFuncionarios() ? '' : 'none';
   }
 
   const newFuncionarioForm = document.getElementById('newFuncionarioForm');
-  if (newFuncionarioForm && !canManageCatalogs()) {
+  if (newFuncionarioForm && !canManageFuncionarios()) {
     newFuncionarioForm.style.display = 'none';
   }
 
@@ -1215,7 +1219,7 @@ async function showChamadoDetails(chamadoId) {
       </div>
     ` : '';
 
-    const editSection = canManageCatalogs() ? `
+    const editSection = isAdmin() ? `
       <div style="margin-top: 20px; padding: 16px; border: 1px solid #dbe4f0; border-radius: 10px; background: #f8fbff;">
         <h3 style="margin-bottom: 12px;">Tratativa e fechamento</h3>
         <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
@@ -1361,7 +1365,7 @@ async function showChamadoDetails(chamadoId) {
 }
 
 async function salvarEdicaoChamado(chamadoId) {
-  if (!canManageCatalogs()) {
+  if (!isAdmin()) {
     alert('Seu perfil não tem permissão para editar chamados.');
     return;
   }
@@ -1947,7 +1951,7 @@ let paginaAtualFunc = 1;
 let limiteFunc = 12;
 
 function showNewFuncionarioForm() {
-  if (!canManageCatalogs()) {
+  if (!canManageFuncionarios()) {
     alert('Seu perfil não tem acesso a este cadastro.');
     return;
   }
@@ -1967,7 +1971,7 @@ function hideFuncionarioForm() {
 }
 
 function showEditFuncionarioForm(funcionarioId) {
-  if (!canManageCatalogs()) {
+  if (!canManageFuncionarios()) {
     alert('Seu perfil não tem acesso a este cadastro.');
     return;
   }
@@ -1998,6 +2002,11 @@ const formNewFunc = document.getElementById('formNewFuncionario');
 if (formNewFunc) {
   formNewFunc.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    if (!canManageFuncionarios()) {
+      alert('Seu perfil não tem acesso a este cadastro.');
+      return;
+    }
 
     const nome = getFieldValue('funcNome');
     const re = getFieldValue('funcRe');
@@ -2127,8 +2136,8 @@ function renderizarGaleriaFunc(funcionarios) {
         ${f.ramal ? `<div style="color: #999; font-size: 11px; margin-bottom: 5px; display: block;">📞 ${f.ramal}</div>` : ''}
         <a href="mailto:${f.email}" style="color: #007bff; font-size: 11px; text-decoration: none; display: block; margin-bottom: 8px; word-break: break-all;">${f.email}</a>
         <div style="display: flex; gap: 5px; flex-direction: column;">
-          ${canManageCatalogs() ? `<button onclick="event.stopPropagation(); showEditFuncionarioForm(${f.id})" style="width: 100%; padding: 5px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">Editar</button>` : ''}
-          ${canManageCatalogs() ? `<button onclick="event.stopPropagation(); deletarFunc(${f.id})" style="flex: 1; padding: 5px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">Deletar</button>` : ''}
+          ${canManageFuncionarios() ? `<button onclick="event.stopPropagation(); showEditFuncionarioForm(${f.id})" style="width: 100%; padding: 5px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">Editar</button>` : ''}
+          ${canManageFuncionarios() ? `<button onclick="event.stopPropagation(); deletarFunc(${f.id})" style="flex: 1; padding: 5px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">Deletar</button>` : ''}
         </div>
       </div>
     </div>
@@ -2173,6 +2182,11 @@ function mudaPaginaFunc(novaPagina) {
 }
 
 async function deletarFunc(id) {
+  if (!canManageFuncionarios()) {
+    alert('Seu perfil não tem acesso a este cadastro.');
+    return;
+  }
+
   if (!confirm('Tem certeza que deseja remover este funcionário?')) {
     return;
   }
@@ -2825,7 +2839,7 @@ function syncEditChamadoSubcategoryOptions(selectedCategory = '', selectedSubcat
 
 function populateUsuariosSelects() {
   const userOptions = usuariosCache
-    .filter(user => ['admin', 'creator'].includes(normalizeRole(user.role)))
+    .filter(user => normalizeRole(user.role) === 'admin')
     .map(user => `<option value="${user.id}">${user.name || user.username}</option>`)
     .join('');
 
@@ -2886,7 +2900,7 @@ async function loadChamadosMetadata() {
 }
 
 async function loadChamadoUsers() {
-  if (!canManageCatalogs()) return;
+  if (!isAdmin()) return;
 
   try {
     const response = await fetch(`${API_URL}/usuarios/list`, {
