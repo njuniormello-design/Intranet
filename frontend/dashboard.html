@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Intranet LI- Dashboard</title>
-  <link rel="stylesheet" href="css/style.css?v=20260512-status-validado">
+  <link rel="stylesheet" href="css/style.css?v=20260518-infraestrutura">
 </head>
 <body>
   <div class="container-main">
@@ -29,6 +29,9 @@
         </a>
         <a href="#" class="nav-link active" id="navChamados" data-page="chamados" onclick="loadPage('chamados', event)">
           <span class="icon">🎫</span> Chamados de TI
+        </a>
+        <a href="#" class="nav-link" id="navInfraestrutura" data-page="infraestrutura" onclick="loadPage('infraestrutura', event)">
+          <span class="icon">🛠️</span> Infraestrutura
         </a>
         <a href="#" class="nav-link" id="navComunicados" data-page="comunicados" onclick="loadPage('comunicados', event)">
           <span class="icon">📢</span> Comunicados
@@ -598,6 +601,276 @@
           </div>
         </div>
 
+        <!-- Chamados de Infraestrutura -->
+        <div id="infraestrutura" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Chamados de Infraestrutura</h2>
+            <button onclick="showNewInfraChamadoForm()" class="btn btn-primary">+ Novo Chamado</button>
+          </div>
+
+          <div id="newInfraChamadoForm" class="form-section" style="display: none;">
+            <h3>Criar Chamado de Infraestrutura</h3>
+            <form id="formNewInfraChamado">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="infraTitle">Título:</label>
+                  <input type="text" id="infraTitle" name="title" minlength="3" maxlength="120" required>
+                </div>
+                <div class="form-group">
+                  <label for="infraRequester">Solicitante:</label>
+                  <input type="text" id="infraRequester" name="requester_name" minlength="2" maxlength="100" required>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="infraDepartment">Setor solicitante:</label>
+                  <select id="infraDepartment" name="department" required>
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="infraUnit">Unidade/local:</label>
+                  <select id="infraUnit" name="unit_name" required>
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="infraEnvironment">Sala/ambiente:</label>
+                  <input type="text" id="infraEnvironment" name="environment" maxlength="120" placeholder="Ex.: Copa, recepção, garagem">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="infraCategory">Categoria:</label>
+                  <select id="infraCategory" name="category" required></select>
+                </div>
+                <div class="form-group">
+                  <label for="infraSubcategory">Subcategoria:</label>
+                  <select id="infraSubcategory" name="subcategory" required></select>
+                </div>
+                <div class="form-group">
+                  <label for="infraAssetIdentifier">Patrimônio/identificação:</label>
+                  <input type="text" id="infraAssetIdentifier" name="asset_identifier" maxlength="120" placeholder="Ar-condicionado, sala, móvel...">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="infraDescription">Descrição detalhada:</label>
+                <textarea id="infraDescription" name="description" rows="5" minlength="10" maxlength="3000" required></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="infraPriority">Prioridade sugerida:</label>
+                  <select id="infraPriority" name="priority">
+                    <option value="baixa">Baixa</option>
+                    <option value="media" selected>Média</option>
+                    <option value="alta">Alta</option>
+                    <option value="critica">Crítica</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="infraImpact">Impacto:</label>
+                  <select id="infraImpact" name="impact">
+                    <option value="individual" selected>Individual</option>
+                    <option value="setor">Setor</option>
+                    <option value="empresa">Empresa</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="infraUrgency">Urgência:</label>
+                  <select id="infraUrgency" name="urgency">
+                    <option value="baixa">Baixa</option>
+                    <option value="media" selected>Média</option>
+                    <option value="alta">Alta</option>
+                    <option value="critica">Crítica</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="infraSafetyRisk">Há risco à segurança?</label>
+                  <select id="infraSafetyRisk" name="safety_risk">
+                    <option value="0" selected>Não</option>
+                    <option value="1">Sim</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="infraActivityInterrupted">Atividade interrompida?</label>
+                  <select id="infraActivityInterrupted" name="activity_interrupted">
+                    <option value="0" selected>Não</option>
+                    <option value="1">Sim</option>
+                  </select>
+                </div>
+                <div class="form-group ticket-admin-only">
+                  <label for="infraNeedsApproval">Exige aprovação/custo?</label>
+                  <select id="infraNeedsApproval" name="needs_approval">
+                    <option value="0" selected>Não</option>
+                    <option value="1">Sim</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row ticket-admin-only">
+                <div class="form-group">
+                  <label for="infraAssignedTo">Responsável:</label>
+                  <select id="infraAssignedTo" name="assigned_to">
+                    <option value="">Definir depois</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="infraSupplierName">Fornecedor:</label>
+                  <input type="text" id="infraSupplierName" name="supplier_name" maxlength="120">
+                </div>
+                <div class="form-group">
+                  <label for="infraEstimatedCost">Custo estimado:</label>
+                  <input type="number" id="infraEstimatedCost" name="estimated_cost" min="0" step="0.01">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="infraAttachments">Anexar fotos/documentos:</label>
+                  <input type="file" id="infraAttachments" name="attachments" multiple accept="image/*,.pdf">
+                  <small>Máx. 8 arquivos, até 5MB cada</small>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <button type="button" onclick="hideInfraChamadoForm()" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Enviar Chamado</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="infraReportSection" style="display: none;">
+            <div class="dashboard-grid" style="margin-bottom: 20px;">
+              <div class="dashboard-card">
+                <h3>Abertos no filtro</h3>
+                <div class="card-number" id="infraReportOpened">0</div>
+                <p class="card-label">Chamados de infraestrutura</p>
+              </div>
+              <div class="dashboard-card">
+                <h3>Encerrados</h3>
+                <div class="card-number" id="infraReportClosed">0</div>
+                <p class="card-label">Finalizados/cancelados</p>
+              </div>
+              <div class="dashboard-card">
+                <h3>Aguard. aprovação</h3>
+                <div class="card-number" id="infraReportApproval">0</div>
+                <p class="card-label">Demandas com aprovação</p>
+              </div>
+              <div class="dashboard-card">
+                <h3>SLA</h3>
+                <div class="card-number" id="infraReportSla">0%</div>
+                <p class="card-label">Dentro do prazo</p>
+              </div>
+            </div>
+            <div class="form-section" style="margin-bottom: 20px;">
+            <h3>Filtros</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="infraStatusFilter">Tipo:</label>
+                <select id="infraStatusFilter">
+                  <option value="ativos" selected>Ativos</option>
+                  <option value="aberto">Abertos</option>
+                  <option value="pendente">Pendentes</option>
+                  <option value="em_atendimento">Em atendimento</option>
+                  <option value="resolvido">Resolvidos</option>
+                  <option value="fechado">Finalizados/cancelados</option>
+                  <option value="todos">Todos</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="infraDateFrom">Data inicial:</label>
+                <input type="date" id="infraDateFrom" name="dateFrom">
+              </div>
+              <div class="form-group">
+                <label for="infraDateTo">Data final:</label>
+                <input type="date" id="infraDateTo" name="dateTo">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="infraFilterCategory">Categoria:</label>
+                <select id="infraFilterCategory"></select>
+              </div>
+              <div class="form-group">
+                <label for="infraFilterPriority">Prioridade:</label>
+                <select id="infraFilterPriority">
+                  <option value="">Todas</option>
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Média</option>
+                  <option value="alta">Alta</option>
+                  <option value="critica">Crítica</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="infraFilterDepartment">Setor:</label>
+                <select id="infraFilterDepartment">
+                  <option value="">Todos</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="infraFilterAssignedTo">Responsável:</label>
+                <select id="infraFilterAssignedTo">
+                  <option value="">Todos</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="infraFilterSearch">Busca:</label>
+                <input type="text" id="infraFilterSearch" placeholder="Número, título, ambiente, fornecedor...">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="infraFilterSla">SLA:</label>
+                <select id="infraFilterSla">
+                  <option value="">Todos</option>
+                  <option value="dentro_sla">Dentro do SLA</option>
+                  <option value="fora_sla">Fora do SLA</option>
+                  <option value="em_andamento">Em andamento</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="infraFilterUnit">Unidade:</label>
+                <select id="infraFilterUnit">
+                  <option value="">Todas</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin-top: 18px;">
+              <button type="button" id="btnAbrirRelatorioInfraHtml" onclick="openInfraReportHtml()" class="btn btn-secondary">Abrir HTML</button>
+              <button type="button" id="btnGerarRelatorioInfraPdf" onclick="generateInfraReportPdf()" class="btn btn-primary">Gerar PDF</button>
+              <button type="button" id="btnExportarRelatorioInfraExcel" onclick="exportInfraReportExcel()" class="btn btn-secondary">Exportar Excel</button>
+              <button type="button" id="btnExportarRelatorioInfraCsv" onclick="exportInfraReportCsv()" class="btn btn-secondary">CSV</button>
+              <button type="button" id="btnExportarRelatorioInfraJson" onclick="exportInfraReportJson()" class="btn btn-secondary">JSON</button>
+            </div>
+          </div>
+          </div>
+
+          <div class="table-section">
+            <h3>Chamados de Infraestrutura</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Solicitante</th>
+                  <th>Setor</th>
+                  <th>Título</th>
+                  <th>Categoria</th>
+                  <th>Prioridade</th>
+                  <th>Status</th>
+                  <th>Responsável</th>
+                  <th>SLA</th>
+                  <th>Data</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="infraTableBody">
+                <!-- Chamados de infraestrutura serão carregados aqui -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Comunicados -->
         <div id="comunicados" class="page-content" style="display: none;">
           <div class="page-header">
@@ -952,7 +1225,7 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260512-status-validado"></script>
+  <script src="js/dashboard.js?v=20260519-infraestrutura-relatorios"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {
@@ -965,7 +1238,7 @@
       }
 
       try {
-        const response = await fetch(`http://localhost:5000/api/comunicados/${comunicadoId}`, {
+        const response = await fetch(`${API_URL}/comunicados/${comunicadoId}`, {
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`

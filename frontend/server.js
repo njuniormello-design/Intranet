@@ -4,6 +4,8 @@ const path = require('path');
 
 const root = __dirname;
 const port = process.env.PORT || 8000;
+const apiTargetHost = process.env.API_TARGET_HOST || '127.0.0.1';
+const apiTargetPort = Number(process.env.API_TARGET_PORT || 5000);
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -36,6 +38,28 @@ function sendFile(res, filePath) {
 
 const server = http.createServer((req, res) => {
   const requestPath = decodeURIComponent(req.url.split('?')[0]);
+
+  if (requestPath === '/api' || requestPath.startsWith('/api/')) {
+    const proxyReq = http.request({
+      hostname: apiTargetHost,
+      port: apiTargetPort,
+      path: req.url,
+      method: req.method,
+      headers: req.headers
+    }, proxyRes => {
+      res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', () => {
+      res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Backend indisponivel para proxy da API' }));
+    });
+
+    req.pipe(proxyReq);
+    return;
+  }
+
   const normalizedPath = requestPath === '/' ? '/index.html' : requestPath;
   const filePath = path.join(root, normalizedPath);
 
