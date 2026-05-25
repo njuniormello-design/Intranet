@@ -367,12 +367,38 @@ O sistema está preparado para:
 **Pronto para Produção:** SIM
 
 Quanto ao SLA:
+
+Lista atual de status e contagem de SLA em Chamados de TI:
+
+- Triagem: nao conta SLA. Pausa o prazo. Marca `first_response_at`, mas nao soma como espera de usuario ou fornecedor.
+- Aberto: conta SLA normalmente. Ainda nao inicia o atendimento tecnico.
+- Em atendimento: conta SLA. Marca o inicio do atendimento em `service_started_at`.
+- Aguardando usuario: nao conta SLA. Pausa o prazo e soma o tempo em `waiting_user_seconds`.
+- Aguardando fornecedor: nao conta SLA. Pausa o prazo e soma o tempo em `waiting_vendor_seconds`.
+- Resolvido: encerra a medicao do SLA de resolucao. Marca `resolved_at`, calcula se ficou dentro ou fora do SLA e envia para validacao do usuario.
+- Validado pelo usuario: nao conta SLA. Fica aguardando fechamento pelo administrador.
+- Fechado: chamado encerrado. Marca `closed_at`; se fechar direto, tambem marca `resolved_at`.
+- Cancelado: chamado encerrado/cancelado. Entra no grupo de fechamento.
+- Reaberto: volta para o grupo ativo e passa a contar SLA novamente.
+
+Resumo pratico:
+
+- Conta SLA: Aberto, Em atendimento, Reaberto.
+- Pausa SLA: Triagem, Aguardando usuario, Aguardando fornecedor.
+- Encerra medicao: Resolvido, Fechado, Cancelado.
+- Aguarda acao final: Validado pelo usuario.
 O SLA ficou baseado na prioridade do chamado e hoje está assim em chamados.js:
 
-urgente: primeiro atendimento em 30 min e solução em 240 min (4h)
-alta: primeiro atendimento em 60 min e solução em 480 min (8h)
-normal: primeiro atendimento em 120 min (2h) e solução em 1440 min (24h)
-baixa: primeiro atendimento em 240 min (4h) e solução em 2880 min (48h)
+-urgente: primeiro atendimento em 30 min e solução em 240 min (4h)
+
+-alta: primeiro atendimento em 60 min e solução em 480 min (8h)
+
+-normal: primeiro atendimento em 120 min (2h) e solução em 1440 min (24h)
+
+-baixa: primeiro atendimento em 240 min (4h) e solução em 2880 min (48h)
+
+
+
 A lógica calcula dois prazos no momento da abertura:
 
 first_response_due_at
@@ -384,13 +410,83 @@ Como a medição funciona:
 primeiro atendimento conta quando o chamado recebe técnico/status de andamento
 solução conta quando ele é concluído/encerrado
 o sistema grava se ficou dentro ou fora do SLA em sla_first_response_met e sla_resolution_met
-Isso é atualizado principalmente em:
+é atualizado principalmente em:
 
 criação/atribuição inicial: chamados.js
 mudança de status: chamados.js
 fechamento completo: chamados.js
-Importante: no estado atual, o SLA está em tempo corrido, não em horário comercial. Se você quiser, eu posso mudar para considerar somente expediente, por exemplo 08:00 às 18:00 em dias úteis.
+considerar somente expediente, por exemplo seg a sex: 08:00 às 18:00 em dias úteis.
 
+ ajustes no chamado: 
+
+Tempo de atendimento
+
+Quando o técnico realmente começa a tratar o chamado.
+
+Tempo de espera
+
+Quando o chamado fica aguardando usuário, fornecedor ou peça.
+Esse tempo normalmente não conta no SLA.
+
+Tempo de fechamento
+
+Prazo final após resolver e encerrar formalmente.
+
+estrutura:
+
+triagem
+Aberto
+Em atendimento
+Aguardando usuário
+Aguardando terceiro/fornecedor
+Resolvido
+Fechado
+
+E o SLA contar só em:
+
+Aberto
+Em atendimento
+
+e pausar em:
+
+Aguardando usuário
+Aguardando fornecedor
+Campos importantes no sistema
+
+Para o SLA ficar bem feito:
+
+prioridade
+impacto
+urgência
+data/hora de abertura
+data/hora da primeira resposta
+data/hora de início do atendimento
+data/hora da resolução
+data/hora do fechamento
+status
+motivo de pausa do SLA
+
+------------------------------------------------------------------------------------
+
+Regra de negocio quanto aos tempos de SLA:
+
+Primeiro atendimento: fica - enquanto first_response_at estiver vazio. Ele é preenchido quando o chamado recebe técnico ou muda para status como triagem, em_atendimento, em_andamento, resolvido, fechado, concluido ou encerrado.
+
+Início do atendimento: fica - enquanto service_started_at estiver vazio. Ele é preenchido quando entra em em_atendimento, em_andamento, resolvido, fechado, concluido ou encerrado.
+
+Resolução: fica - enquanto resolved_at estiver vazio. Ele é preenchido ao mudar para resolvido; se fechar direto, também grava resolução automaticamente.
+Encerramento: fica - enquanto closed_at estiver vazio. Ele é preenchido nos status fechado, concluido, encerrado ou cancelado.
+
+Tempo de atendimento: fica - se ainda não existe início do atendimento. Quando existir, calcula de service_started_at até resolved_at, closed_at ou agora, descontando paused_seconds.
+
+Tempo em espera: sempre aparece como tempo. No caso atual está 0min porque waiting_user_seconds + waiting_vendor_seconds = 0.
+Tempo de fechamento: fica - até ter os dois campos: resolved_at e closed_at. Depois calcula o intervalo entre resolução e encerramento.
+
+Tempo em espera está vinculado aos status:
+
+aguardando_usuario
+aguardando_fornecedor
+ Resolvido ficou de pausar o tempo e aguardar validação do user para depois fechar. Se o usuario nao validar em 5 dias corridos, o backend fecha automaticamente o chamado.
 ---
 
 ## CONCLUSÃO

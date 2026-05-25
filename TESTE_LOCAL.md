@@ -49,7 +49,7 @@ Esse comando valida:
 8. Clicar em `Validar e fechar` e conferir status `Fechado`.
 9. Repetir com outro chamado e clicar em `Nao validar e reabrir`, descrevendo a situacao.
 10. Confirmar status `Reaberto` e registro no historico.
-11. Para regra automatica: chamado `Resolvido` com validacao `Pendente` por 7 dias corridos deve ser fechado automaticamente pelo backend, com historico `Fechamento automatico`.
+11. Para regra automatica: chamado `Resolvido` com validacao `Pendente` por 5 dias corridos deve ser fechado automaticamente pelo backend, com historico `Fechamento automatico`.
 
 ## 4. Criterio para producao
 

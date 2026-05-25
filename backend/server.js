@@ -67,7 +67,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const USER_VALIDATION_AUTO_CLOSE_DAYS = 7;
+const USER_VALIDATION_AUTO_CLOSE_DAYS = 5;
 const AUTO_CLOSE_INTERVAL_MS = 60 * 60 * 1000;
 
 async function ensureDatabaseUpdates() {
@@ -361,53 +361,67 @@ async function ensureDatabaseUpdates() {
 
 async function closeExpiredUserValidationChamados() {
   const connection = await pool.getConnection();
+  const targets = [
+    {
+      tableName: 'chamados',
+      historyTableName: 'chamado_historico',
+      logName: 'chamado(s) de TI'
+    },
+    {
+      tableName: 'infra_chamados',
+      historyTableName: 'infra_historico',
+      logName: 'chamado(s) de infraestrutura'
+    }
+  ];
 
   try {
     await connection.beginTransaction();
 
-    const [expiredChamados] = await connection.query(
-      `SELECT id, status
-         FROM chamados
-        WHERE status = 'resolvido'
-          AND user_validation_status = 'pendente'
-          AND resolved_at IS NOT NULL
-          AND resolved_at <= DATE_SUB(NOW(), INTERVAL ? DAY)
-        FOR UPDATE`,
-      [USER_VALIDATION_AUTO_CLOSE_DAYS]
-    );
-
-    for (const chamado of expiredChamados) {
-      await connection.query(
-        `UPDATE chamados
-            SET status = 'fechado',
-                final_status = 'fechado',
-                closed_at = NOW(),
-                user_validation_status = 'expirado',
-                user_validation_comment = ?,
-                updated_at = NOW()
-          WHERE id = ?
-            AND status = 'resolvido'
-            AND user_validation_status = 'pendente'`,
-        [`Fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias sem validacao do usuario`, chamado.id]
+    for (const target of targets) {
+      const [expiredChamados] = await connection.query(
+        `SELECT id, status
+           FROM ${target.tableName}
+          WHERE status = 'resolvido'
+            AND user_validation_status = 'pendente'
+            AND resolved_at IS NOT NULL
+            AND resolved_at <= DATE_SUB(NOW(), INTERVAL ? DAY)
+          FOR UPDATE`,
+        [USER_VALIDATION_AUTO_CLOSE_DAYS]
       );
 
-      await connection.query(
-        `INSERT INTO chamado_historico
-         (chamado_id, changed_by, action_type, from_status, to_status, observation, created_at)
-         VALUES (?, NULL, 'fechamento_automatico', ?, 'fechado', ?, NOW())`,
-        [
-          chamado.id,
-          chamado.status,
-          `Chamado fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias corridos sem validacao do usuario`
-        ]
-      );
+      for (const chamado of expiredChamados) {
+        await connection.query(
+          `UPDATE ${target.tableName}
+              SET status = 'fechado',
+                  final_status = 'fechado',
+                  closed_at = NOW(),
+                  user_validation_status = 'expirado',
+                  user_validation_comment = ?,
+                  updated_at = NOW()
+            WHERE id = ?
+              AND status = 'resolvido'
+              AND user_validation_status = 'pendente'`,
+          [`Fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias sem validacao do usuario`, chamado.id]
+        );
+
+        await connection.query(
+          `INSERT INTO ${target.historyTableName}
+           (chamado_id, changed_by, action_type, from_status, to_status, observation, created_at)
+           VALUES (?, NULL, 'fechamento_automatico', ?, 'fechado', ?, NOW())`,
+          [
+            chamado.id,
+            chamado.status,
+            `Chamado fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias corridos sem validacao do usuario`
+          ]
+        );
+      }
+
+      if (expiredChamados.length) {
+        console.log(`${expiredChamados.length} ${target.logName} fechado(s) automaticamente por falta de validacao do usuario.`);
+      }
     }
 
     await connection.commit();
-
-    if (expiredChamados.length) {
-      console.log(`${expiredChamados.length} chamado(s) fechado(s) automaticamente por falta de validacao do usuario.`);
-    }
   } catch (error) {
     await connection.rollback();
     console.error('Erro ao fechar chamados expirados:', error);
