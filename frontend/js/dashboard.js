@@ -160,10 +160,10 @@ function getChamadoUserName(chamado) {
 
 function getUserValidationLabel(status) {
   const labels = {
-    nao_enviado: 'Nao enviado para validacao',
-    pendente: 'Aguardando validacao do usuario',
-    aprovado: 'Aprovado pelo usuario',
-    recusado: 'Recusado pelo usuario',
+    nao_enviado: 'Não enviado para validação',
+    pendente: 'Aguardando validação do usuário',
+    aprovado: 'Aprovado pelo usuário',
+    recusado: 'Recusado pelo usuário',
     expirado: 'Fechado automaticamente por prazo'
   };
   return labels[status] || humanizeOptionLabel(status || 'nao_enviado');
@@ -401,7 +401,7 @@ async function readApiResponse(response) {
   const text = await response.text();
   if (/^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
     return {
-      error: `Rota da API nao encontrada (${response.status}). Reinicie o backend para carregar as rotas mais recentes.`
+      error: `Rota da API não encontrada (${response.status}). Reinicie o backend para carregar as rotas mais recentes.`
     };
   }
   return {
@@ -553,7 +553,7 @@ async function loadCurrentUserAvatar() {
       avatarEl.alt = funcionario.nome || currentUser.name || 'Avatar';
     }
   } catch (error) {
-    console.error('Erro ao carregar avatar do usuario:', error);
+    console.error('Erro ao carregar avatar do usuário:', error);
   }
 }
 
@@ -1285,24 +1285,24 @@ async function showChamadoDetails(chamadoId) {
 
     const treatmentSummary = (chamado.action_taken || chamado.solution_applied || chamado.user_validation_status) ? `
       <div style="margin-top: 20px; padding: 16px; border: 1px solid #dbe4f0; border-radius: 10px; background: #ffffff;">
-        <h3 style="margin-bottom: 12px;">Solucao do tecnico</h3>
-        <p><strong>Acao executada:</strong> ${escapeHtml(chamado.action_taken || '-')}</p>
-        <p><strong>Solucao aplicada:</strong> ${escapeHtml(chamado.solution_applied || '-')}</p>
-        <p><strong>Validacao do usuario:</strong> ${getUserValidationLabel(chamado.user_validation_status)}</p>
-        ${chamado.user_validation_comment ? `<p><strong>Situacao descrita:</strong> ${escapeHtml(chamado.user_validation_comment)}</p>` : ''}
+        <h3 style="margin-bottom: 12px;">Solução do técnico</h3>
+        <p><strong>Ação executada:</strong> ${escapeHtml(chamado.action_taken || '-')}</p>
+        <p><strong>Solução aplicada:</strong> ${escapeHtml(chamado.solution_applied || '-')}</p>
+        <p><strong>Validação do usuário:</strong> ${getUserValidationLabel(chamado.user_validation_status)}</p>
+        ${chamado.user_validation_comment ? `<p><strong>Situação descrita:</strong> ${escapeHtml(chamado.user_validation_comment)}</p>` : ''}
       </div>
     ` : '';
 
     const validationSection = canValidateChamadoSolution(chamado) ? `
       <div style="margin-top: 20px; padding: 16px; border: 1px solid #bfdbfe; border-radius: 10px; background: #eff6ff;">
-        <h3 style="margin-bottom: 12px;">Validar solucao</h3>
+        <h3 style="margin-bottom: 12px;">Validar solução</h3>
         <div class="form-group">
-          <label for="chamadoValidationComment">Descreva a situacao, principalmente se ainda nao foi resolvida</label>
+          <label for="chamadoValidationComment">Descreva a situação, principalmente se ainda não foi resolvida</label>
           <textarea id="chamadoValidationComment" rows="3" maxlength="500" style="width:100%; padding:8px;"></textarea>
         </div>
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
-          <button class="btn btn-secondary" onclick="validarSolucaoChamado(${chamado.id}, false)">Nao validar e reabrir</button>
-          <button class="btn btn-primary" onclick="validarSolucaoChamado(${chamado.id}, true)">Validar solucao</button>
+          <button class="btn btn-secondary" onclick="validarSolucaoChamado(${chamado.id}, false)">Não validar e reabrir</button>
+          <button class="btn btn-primary" onclick="validarSolucaoChamado(${chamado.id}, true)">Validar solução</button>
         </div>
       </div>
     ` : '';
@@ -1528,7 +1528,7 @@ async function salvarEdicaoChamado(chamadoId) {
 async function validarSolucaoChamado(chamadoId, approved) {
   const comment = document.getElementById('chamadoValidationComment')?.value?.trim() || '';
   if (!approved && comment.length < 5) {
-    alert('Descreva o que ainda nao foi resolvido para reabrir o chamado.');
+    alert('Descreva o que ainda não foi resolvido para reabrir o chamado.');
     return;
   }
 
@@ -1788,7 +1788,7 @@ async function showInfraDetails(chamadoId) {
       headers: { Authorization: `Bearer ${token}` }
     });
     const chamado = await readApiResponse(response);
-    if (!response.ok) throw new Error(chamado?.error || 'Chamado de infraestrutura nao encontrado');
+    if (!response.ok) throw new Error(chamado?.error || 'Chamado de infraestrutura não encontrado');
 
     editingInfraChamadoData = { ...chamado };
     const modal = document.getElementById('chamadoModal');
@@ -1826,24 +1826,24 @@ async function showInfraDetails(chamadoId) {
 
     const treatmentSummary = (chamado.action_taken || chamado.solution_applied || chamado.user_validation_status || chamado.status === 'resolvido') ? `
       <div style="margin-top: 20px; padding: 16px; border: 1px solid #dbe4f0; border-radius: 10px; background: #ffffff;">
-        <h3 style="margin-bottom: 12px;">Solucao do tecnico</h3>
-        <p><strong>Acao executada:</strong> ${escapeHtml(chamado.action_taken || '-')}</p>
-        <p><strong>Solucao aplicada:</strong> ${escapeHtml(chamado.solution_applied || '-')}</p>
-        <p><strong>Validacao do usuario:</strong> ${getUserValidationLabel(chamado.user_validation_status)}</p>
-        ${chamado.user_validation_comment ? `<p><strong>Situacao descrita:</strong> ${escapeHtml(chamado.user_validation_comment)}</p>` : ''}
+        <h3 style="margin-bottom: 12px;">Solução do técnico</h3>
+        <p><strong>Ação executada:</strong> ${escapeHtml(chamado.action_taken || '-')}</p>
+        <p><strong>Solução aplicada:</strong> ${escapeHtml(chamado.solution_applied || '-')}</p>
+        <p><strong>Validação do usuário:</strong> ${getUserValidationLabel(chamado.user_validation_status)}</p>
+        ${chamado.user_validation_comment ? `<p><strong>Situação descrita:</strong> ${escapeHtml(chamado.user_validation_comment)}</p>` : ''}
       </div>
     ` : '';
 
     const validationSection = canValidateInfraSolution(chamado) ? `
       <div style="margin-top: 20px; padding: 16px; border: 1px solid #bfdbfe; border-radius: 10px; background: #eff6ff;">
-        <h3 style="margin-bottom: 12px;">Validar solucao</h3>
+        <h3 style="margin-bottom: 12px;">Validar solução</h3>
         <div class="form-group">
-          <label for="infraValidationComment">Descreva a situacao, principalmente se ainda nao foi resolvida</label>
+          <label for="infraValidationComment">Descreva a situação, principalmente se ainda não foi resolvida</label>
           <textarea id="infraValidationComment" rows="3" maxlength="500" style="width:100%; padding:8px;"></textarea>
         </div>
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
-          <button class="btn btn-secondary" onclick="validarSolucaoInfra(${chamado.id}, false)">Nao validar e reabrir</button>
-          <button class="btn btn-primary" onclick="validarSolucaoInfra(${chamado.id}, true)">Validar solucao</button>
+          <button class="btn btn-secondary" onclick="validarSolucaoInfra(${chamado.id}, false)">Não validar e reabrir</button>
+          <button class="btn btn-primary" onclick="validarSolucaoInfra(${chamado.id}, true)">Validar solução</button>
         </div>
       </div>
     ` : '';
@@ -1853,7 +1853,7 @@ async function showInfraDetails(chamadoId) {
           <div class="form-group" style="flex:1;">
             <label for="editInfraAdditionalAttachments">Adicionar mais imagens</label>
             <input id="editInfraAdditionalAttachments" type="file" accept="image/*" multiple style="width:100%; padding:8px;">
-            <small>Somente administrador pode incluir novas imagens apos a abertura.</small>
+            <small>Somente administrador pode incluir novas imagens após a abertura.</small>
           </div>
           <div class="form-group" style="min-width:200px;">
             <button class="btn btn-secondary" type="button" onclick="uploadInfraAdditionalImages(${chamado.id})" style="width:100%;">Enviar imagens</button>
@@ -1960,13 +1960,13 @@ async function showInfraDetails(chamadoId) {
             <textarea id="editInfraRootCause" rows="2" style="width:100%; padding:8px;">${escapeHtml(chamado.root_cause || '')}</textarea>
           </div>
           <div class="form-group" style="flex:1;">
-            <label for="editInfraActionTaken">Acao executada</label>
+            <label for="editInfraActionTaken">Ação executada</label>
             <textarea id="editInfraActionTaken" rows="2" style="width:100%; padding:8px;">${escapeHtml(chamado.action_taken || '')}</textarea>
           </div>
         </div>
         <div class="form-row" style="display:flex; gap:12px; flex-wrap:wrap;">
           <div class="form-group" style="flex:1;">
-            <label for="editInfraSolutionApplied">Solucao aplicada</label>
+            <label for="editInfraSolutionApplied">Solução aplicada</label>
             <textarea id="editInfraSolutionApplied" rows="2" style="width:100%; padding:8px;">${escapeHtml(chamado.solution_applied || '')}</textarea>
           </div>
           <div class="form-group" style="flex:1;">
@@ -1975,7 +1975,7 @@ async function showInfraDetails(chamadoId) {
           </div>
           <div class="form-group" style="flex:1;">
             <label for="editInfraPauseReason">Motivo Pausa SLA</label>
-            <textarea id="editInfraPauseReason" rows="2" style="width:100%; padding:8px;" placeholder="Obrigatorio quando estiver aguardando informacoes, aprovacao, orcamento, fornecedor, material ou agendamento">${escapeHtml(chamado.sla_pause_reason || '')}</textarea>
+            <textarea id="editInfraPauseReason" rows="2" style="width:100%; padding:8px;" placeholder="Obrigatório quando estiver aguardando informações, aprovação, orçamento, fornecedor, material ou agendamento">${escapeHtml(chamado.sla_pause_reason || '')}</textarea>
           </div>
         </div>
         ${additionalImagesSection}
@@ -2037,7 +2037,7 @@ async function showInfraDetails(chamadoId) {
 
 async function salvarEdicaoInfraChamado(chamadoId) {
   if (!isAdmin()) {
-    alert('Seu perfil nao tem permissao para editar chamados de infraestrutura.');
+    alert('Seu perfil não tem permissão para editar chamados de infraestrutura.');
     return;
   }
 
@@ -2126,7 +2126,7 @@ async function reabrirInfraChamado(chamadoId) {
 
 async function uploadInfraAdditionalImages(chamadoId) {
   if (!isAdmin()) {
-    alert('Somente administradores podem adicionar imagens apos a abertura do chamado.');
+    alert('Somente administradores podem adicionar imagens após a abertura do chamado.');
     return;
   }
 
@@ -2167,7 +2167,7 @@ async function uploadInfraAdditionalImages(chamadoId) {
 async function validarSolucaoInfra(chamadoId, approved) {
   const comment = document.getElementById('infraValidationComment')?.value?.trim() || '';
   if (!approved && comment.length < 5) {
-    alert('Descreva o que ainda nao foi resolvido para reabrir o chamado.');
+    alert('Descreva o que ainda não foi resolvido para reabrir o chamado.');
     return;
   }
 
@@ -2630,7 +2630,23 @@ async function loadDocumentos() {
 
 // ==================== FUNCIONÁRIOS ====================
 let paginaAtualFunc = 1;
-let limiteFunc = 12;
+let limiteFunc = 16;
+const FUNCIONARIO_CARD_MIN_WIDTH = 160;
+const FUNCIONARIO_GRID_GAP = 15;
+const FUNCIONARIO_VISIBLE_ROWS = 2;
+
+function calcularLimiteFuncionarios() {
+  const galeria = document.getElementById('funcionariosGaleria');
+  const width = galeria?.clientWidth || galeria?.parentElement?.clientWidth || 0;
+  if (!width) return limiteFunc;
+
+  const columns = Math.max(
+    1,
+    Math.floor((width + FUNCIONARIO_GRID_GAP) / (FUNCIONARIO_CARD_MIN_WIDTH + FUNCIONARIO_GRID_GAP))
+  );
+
+  return Math.max(12, columns * FUNCIONARIO_VISIBLE_ROWS);
+}
 
 function showNewFuncionarioForm() {
   if (!canManageFuncionarios()) {
@@ -2764,6 +2780,7 @@ async function loadFuncionarios() {
   const galeria = document.getElementById('funcionariosGaleria');
   if (!galeria) return;
 
+  limiteFunc = calcularLimiteFuncionarios();
   galeria.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">Carregando...</p>';
 
   try {
@@ -3104,7 +3121,7 @@ function renderUsuariosList(filterValue = '') {
   if (!tableBody) return;
 
   if (!canAccessUsers()) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Seu perfil nÃ£o tem acesso a esta Ã¡rea</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
     return;
   }
 
@@ -3114,12 +3131,12 @@ function renderUsuariosList(filterValue = '') {
     : usuariosCache;
 
   if (usuariosCache.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuÃ¡rio cadastrado</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
     return;
   }
 
   if (filteredUsuarios.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuÃ¡rio encontrado para a busca</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para a busca</td></tr>';
     return;
   }
 
@@ -3170,10 +3187,10 @@ if (formNewUsuario) {
       validationErrors.push('Nome deve ter entre 2 e 100 caracteres');
     }
     if (birthDate && isFutureDate(birthDate)) {
-      validationErrors.push('Data de nascimento nao pode ser futura');
+      validationErrors.push('Data de nascimento não pode ser futura');
     }
     if (email && !validateEmailFormat(email)) {
-      validationErrors.push('Informe um email valido');
+      validationErrors.push('Informe um email válido');
     }
     const allowedRoles = getAllowedUserRoles();
     if (!allowedRoles.includes(role)) {
@@ -3217,11 +3234,11 @@ if (formNewUsuario) {
         hideUsuarioForm();
         loadUsuarios();
       } else {
-        alert(apiMessage || (editingUsuarioId ? 'Erro ao atualizar usuario' : 'Erro ao cadastrar usuario'));
+        alert(apiMessage || (editingUsuarioId ? 'Erro ao atualizar usuário' : 'Erro ao cadastrar usuário'));
       }
     } catch (error) {
-      console.error('Erro ao salvar usuario:', error);
-      alert('Erro ao salvar usuario: ' + error.message);
+      console.error('Erro ao salvar usuário:', error);
+      alert('Erro ao salvar usuário: ' + error.message);
     }
   });
 }
@@ -3262,13 +3279,13 @@ async function loadUsuarios() {
 
 function editUser(userId) {
   if (getCurrentRole() !== 'admin') {
-    alert('Apenas administradores podem editar usuarios.');
+    alert('Apenas administradores podem editar usuários.');
     return;
   }
 
   const user = usuariosCache.find(item => Number(item.id) === Number(userId));
   if (!user) {
-    alert('Usuario nao encontrado na lista.');
+    alert('Usuário não encontrado na lista.');
     return;
   }
 
@@ -3328,12 +3345,12 @@ if (formChangePassword) {
     const confirmPassword = document.getElementById('confirmNewPassword')?.value || '';
 
     if (!/^[A-Za-z0-9]{6}$/.test(password)) {
-      alert('A senha deve ter exatamente 6 numeros ou letras.');
+      alert('A senha deve ter exatamente 6 números ou letras.');
       return;
     }
 
     if (password !== confirmPassword) {
-      alert('A confirmacao da senha nao confere.');
+      alert('A confirmação da senha não confere.');
       return;
     }
 
@@ -3358,7 +3375,7 @@ if (formChangePassword) {
       } else {
         const errorMessage = String(data.error || '');
         if (response.status === 404 || errorMessage.includes('Cannot POST') || errorMessage.includes('<!DOCTYPE html>')) {
-          alert('Alteracao de senha ainda nao esta disponivel no servidor. Atualize e reinicie o backend em producao.');
+          alert('Alteração de senha ainda não está disponível no servidor. Atualize e reinicie o backend em produção.');
         } else {
           alert(errorMessage || 'Erro ao alterar senha');
         }
@@ -3450,7 +3467,7 @@ function getChamadoStatusLabel(status) {
     aguardando_fornecedor: 'Aguardando fornecedor',
     pausado: 'Pausado',
     resolvido: 'Resolvido',
-    validado_usuario: 'Validado pelo usuario',
+    validado_usuario: 'Validado pelo usuário',
     fechado: 'Fechado',
     concluido: 'Concluído',
     encerrado: 'Encerrado',
@@ -3529,10 +3546,10 @@ function getInfraStatusLabel(status) {
     pendente_material: 'Pendente de material',
     pendente_agendamento: 'Pendente de agendamento',
     resolvido: 'Resolvido',
-    validado_usuario: 'Validado pelo usuario',
+    validado_usuario: 'Validado pelo usuário',
     finalizado: 'Finalizado',
     cancelado: 'Cancelado',
-    reaberto_usuario: 'Reaberto pelo usuario',
+    reaberto_usuario: 'Reaberto pelo usuário',
     reaberto: 'Reaberto'
   };
   return labels[status] || humanizeOptionLabel(status || '-');

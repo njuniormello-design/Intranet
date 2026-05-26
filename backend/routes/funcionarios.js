@@ -90,9 +90,9 @@ router.post('/criar', authenticateToken, authorizeRoles('admin', 'creator'), upl
 // Listar funcionários com paginação
 router.get('/listar', authenticateToken, async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12; // 12 por página (3x4)
-    const offset = (page - 1) * limit;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const requestedLimit = parseInt(req.query.limit) || 16;
+    const limit = Math.min(Math.max(requestedLimit, 1), 60);
 
     const connection = await pool.getConnection();
 
@@ -100,6 +100,13 @@ router.get('/listar', authenticateToken, async (req, res) => {
     const [[{ total }]] = await connection.query(
       'SELECT COUNT(*) as total FROM funcionarios WHERE status = "ativo"'
     );
+
+    const totalPages = Math.max(Math.ceil(total / limit), 1);
+    const currentPage = Math.min(Math.max(page, 1), totalPages);
+    const remainingLastPage = total % limit;
+    const offset = currentPage === totalPages && remainingLastPage > 0
+      ? Math.max(total - limit, 0)
+      : (currentPage - 1) * limit;
 
     // Buscar funcionários com paginação
     const [funcionarios] = await connection.query(
@@ -109,12 +116,10 @@ router.get('/listar', authenticateToken, async (req, res) => {
 
     connection.release();
 
-    const totalPages = Math.ceil(total / limit);
-
     res.json({
       funcionarios: funcionarios,
       pagination: {
-        page: page,
+        page: currentPage,
         limit: limit,
         total: total,
         totalPages: totalPages
@@ -144,7 +149,7 @@ router.get('/me/foto', authenticateToken, async (req, res) => {
     res.json(funcionarios[0] || { foto_path: null });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Erro ao buscar foto do funcionario' });
+    res.status(500).json({ error: 'Erro ao buscar foto do funcionário' });
   }
 });
 

@@ -370,23 +370,23 @@ Quanto ao SLA:
 
 Lista atual de status e contagem de SLA em Chamados de TI:
 
-- Triagem: nao conta SLA. Pausa o prazo. Marca `first_response_at`, mas nao soma como espera de usuario ou fornecedor.
-- Aberto: conta SLA normalmente. Ainda nao inicia o atendimento tecnico.
-- Em atendimento: conta SLA. Marca o inicio do atendimento em `service_started_at`.
-- Aguardando usuario: nao conta SLA. Pausa o prazo e soma o tempo em `waiting_user_seconds`.
-- Aguardando fornecedor: nao conta SLA. Pausa o prazo e soma o tempo em `waiting_vendor_seconds`.
-- Resolvido: encerra a medicao do SLA de resolucao. Marca `resolved_at`, calcula se ficou dentro ou fora do SLA e envia para validacao do usuario.
-- Validado pelo usuario: nao conta SLA. Fica aguardando fechamento pelo administrador.
-- Fechado: chamado encerrado. Marca `closed_at`; se fechar direto, tambem marca `resolved_at`.
+- Triagem: não conta SLA. Pausa o prazo. Marca `first_response_at`, mas não soma como espera de usuário ou fornecedor.
+- Aberto: conta SLA normalmente. Ainda não inicia o atendimento técnico.
+- Em atendimento: conta SLA. Marca o início do atendimento em `service_started_at`.
+- Aguardando usuário: não conta SLA. Pausa o prazo e soma o tempo em `waiting_user_seconds`.
+- Aguardando fornecedor: não conta SLA. Pausa o prazo e soma o tempo em `waiting_vendor_seconds`.
+- Resolvido: encerra a medição do SLA de resolução. Marca `resolved_at`, calcula se ficou dentro ou fora do SLA e envia para validação do usuário.
+- Validado pelo usuário: não conta SLA. Fica aguardando fechamento pelo administrador.
+- Fechado: chamado encerrado. Marca `closed_at`; se fechar direto, também marca `resolved_at`.
 - Cancelado: chamado encerrado/cancelado. Entra no grupo de fechamento.
 - Reaberto: volta para o grupo ativo e passa a contar SLA novamente.
 
-Resumo pratico:
+Resumo prático:
 
 - Conta SLA: Aberto, Em atendimento, Reaberto.
-- Pausa SLA: Triagem, Aguardando usuario, Aguardando fornecedor.
-- Encerra medicao: Resolvido, Fechado, Cancelado.
-- Aguarda acao final: Validado pelo usuario.
+- Pausa SLA: Triagem, Aguardando usuário, Aguardando fornecedor.
+- Encerra medição: Resolvido, Fechado, Cancelado.
+- Aguarda ação final: Validado pelo usuário.
 O SLA ficou baseado na prioridade do chamado e hoje está assim em chamados.js:
 
 -urgente: primeiro atendimento em 30 min e solução em 240 min (4h)
@@ -486,7 +486,7 @@ Tempo em espera está vinculado aos status:
 
 aguardando_usuario
 aguardando_fornecedor
- Resolvido ficou de pausar o tempo e aguardar validação do user para depois fechar. Se o usuario nao validar em 5 dias corridos, o backend fecha automaticamente o chamado.
+ Resolvido ficou de pausar o tempo e aguardar validação do user para depois fechar. Se o usuário não validar em 5 dias corridos, o backend fecha automaticamente o chamado.
 ---
 
 ## CONCLUSÃO

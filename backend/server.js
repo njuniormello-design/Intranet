@@ -401,7 +401,7 @@ async function closeExpiredUserValidationChamados() {
             WHERE id = ?
               AND status = 'resolvido'
               AND user_validation_status = 'pendente'`,
-          [`Fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias sem validacao do usuario`, chamado.id]
+          [`Fechado automaticamente após ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias sem validação do usuário`, chamado.id]
         );
 
         await connection.query(
@@ -411,13 +411,13 @@ async function closeExpiredUserValidationChamados() {
           [
             chamado.id,
             chamado.status,
-            `Chamado fechado automaticamente apos ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias corridos sem validacao do usuario`
+            `Chamado fechado automaticamente após ${USER_VALIDATION_AUTO_CLOSE_DAYS} dias corridos sem validação do usuário`
           ]
         );
       }
 
       if (expiredChamados.length) {
-        console.log(`${expiredChamados.length} ${target.logName} fechado(s) automaticamente por falta de validacao do usuario.`);
+        console.log(`${expiredChamados.length} ${target.logName} fechado(s) automaticamente por falta de validação do usuário.`);
       }
     }
 
