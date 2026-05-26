@@ -16,18 +16,22 @@ const normalizeRole = (role) => {
   return 'viewer';
 };
 
-// Middleware de autenticacao
+// Middleware de autenticação
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Token nao fornecido' });
+    return res.status(401).json({ code: 'TOKEN_MISSING', error: 'Token não fornecido' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Token invalido' });
+      const isExpired = err.name === 'TokenExpiredError';
+      return res.status(401).json({
+        code: isExpired ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID',
+        error: isExpired ? 'Sessão expirada. Faça login novamente.' : 'Token inválido'
+      });
     }
 
     (async () => {
@@ -39,7 +43,7 @@ const authenticateToken = (req, res, next) => {
       connection.release();
 
       if (users.length === 0) {
-        return res.status(403).json({ error: 'Token invalido' });
+        return res.status(401).json({ code: 'TOKEN_INVALID', error: 'Token inválido' });
       }
 
       req.user = { ...user, ...users[0], role: normalizeRole(users[0].role) };

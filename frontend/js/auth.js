@@ -5,6 +5,16 @@ const API_URL =
       ? 'http://localhost:5000/api'
       : '/api';
 
+const sessionMessage = sessionStorage.getItem('sessionMessage');
+if (sessionMessage) {
+  sessionStorage.removeItem('sessionMessage');
+  const messageDiv = document.getElementById('message');
+  if (messageDiv) {
+    messageDiv.textContent = sessionMessage;
+    messageDiv.className = 'message error';
+  }
+}
+
 function toggleForms() {
   document.getElementById('loginForm').style.display =
     document.getElementById('loginForm').style.display === 'none' ? 'block' : 'none';
@@ -32,6 +42,7 @@ document.getElementById('formLogin')?.addEventListener('submit', async (e) => {
     const data = await response.json();
 
     if (response.ok) {
+      sessionStorage.removeItem('sessionMessage');
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       messageDiv.textContent = 'Login realizado! Redirecionando...';

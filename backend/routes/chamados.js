@@ -80,7 +80,8 @@ const ALLOWED_DEPARTMENTS = [
   'OPERAÇÕES',
   'ESTAC. COLAB.',
   'ESTAC. FROTA',
-  'VESTIÁRIO'
+  'VESTIÁRIO',
+  'PESQUISA DE PREÇOS'
 ];
 
 const SLA_BY_PRIORITY = {

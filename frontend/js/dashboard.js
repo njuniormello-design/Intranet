@@ -7,6 +7,62 @@ const API_URL =
 const API_ORIGIN = API_URL.replace(/\/api$/, '');
 let token = localStorage.getItem('token');
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null') || {};
+let sessionRedirecting = false;
+
+function getTokenPayload(jwtToken) {
+  try {
+    const payload = String(jwtToken || '').split('.')[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    return JSON.parse(window.atob(padded));
+  } catch (error) {
+    return null;
+  }
+}
+
+function isStoredTokenExpired(jwtToken) {
+  const payload = getTokenPayload(jwtToken);
+  return Boolean(payload?.exp && Date.now() >= payload.exp * 1000);
+}
+
+function redirectToLogin(message = 'Sua sessão expirou. Faça login novamente.') {
+  if (sessionRedirecting) return;
+  sessionRedirecting = true;
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  sessionStorage.setItem('sessionMessage', message);
+  window.location.href = 'index.html';
+}
+
+async function handleAuthErrorResponse(response) {
+  if (![401, 403].includes(response.status)) return response;
+
+  let payload = null;
+  try {
+    payload = await response.clone().json();
+  } catch (error) {
+    return response;
+  }
+
+  const code = String(payload?.code || '');
+  const error = String(payload?.error || '').toLowerCase();
+  const isAuthError = ['TOKEN_MISSING', 'TOKEN_EXPIRED', 'TOKEN_INVALID'].includes(code)
+    || error.includes('token')
+    || error.includes('sessão expirada');
+
+  if (isAuthError) {
+    redirectToLogin(payload?.error || 'Sua sessão expirou. Faça login novamente.');
+  }
+
+  return response;
+}
+
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const response = await nativeFetch(...args);
+  return handleAuthErrorResponse(response);
+};
 
 const ROLE_LABELS = {
   admin: 'Administrador',
@@ -466,6 +522,8 @@ function setComunicadoFormMode(mode) {
 // Verificar autenticação
 if (!token) {
   window.location.href = 'index.html';
+} else if (isStoredTokenExpired(token)) {
+  redirectToLogin('Sua sessão expirou. Faça login novamente.');
 }
 
 // Carregar dados do usuário
