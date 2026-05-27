@@ -2561,8 +2561,38 @@ async function importarInventarioCsv(event) {
 
 async function vincularInventarioItem(itemId) {
   const item = inventarioCache.find(entry => Number(entry.id) === Number(itemId));
-  const colaborador = prompt('Nome do colaborador responsável:', item?.usuario_atual || '');
-  if (!colaborador) return;
+  const termoBusca = prompt('Digite parte do nome, login ou e-mail do usuário cadastrado:', item?.usuario_atual || '');
+  if (!termoBusca) return;
+
+  let usuarioSelecionado = null;
+  try {
+    const buscaResponse = await fetch(`${API_URL}/usuarios/search?${new URLSearchParams({ term: termoBusca }).toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const usuarios = await readApiResponse(buscaResponse);
+    if (!buscaResponse.ok) throw new Error(usuarios.error || 'Erro ao buscar usuários');
+
+    if (!Array.isArray(usuarios) || usuarios.length === 0) {
+      alert('Nenhum usuário cadastrado encontrado para esta busca.');
+      return;
+    }
+
+    if (usuarios.length === 1) {
+      usuarioSelecionado = usuarios[0];
+    } else {
+      const lista = usuarios
+        .map((usuario, index) => `${index + 1}. ${usuario.name || usuario.username} (${usuario.username})`)
+        .join('\n');
+      const escolha = Number(prompt(`Selecione o usuário pelo número:\n\n${lista}`, '1'));
+      if (!Number.isInteger(escolha) || escolha < 1 || escolha > usuarios.length) return;
+      usuarioSelecionado = usuarios[escolha - 1];
+    }
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const colaborador = usuarioSelecionado.name || usuarioSelecionado.username;
   const setor = prompt('Setor do colaborador:', item?.setor_atual || item?.setor || '') || '';
   const dataEntrega = prompt('Data de entrega (AAAA-MM-DD):', new Date().toISOString().slice(0, 10)) || '';
   const observacoes = prompt('Motivo/observações da entrega ou transferência:', item?.usuario_atual ? 'Transferência de equipamento' : 'Entrega de equipamento') || '';
@@ -2575,6 +2605,7 @@ async function vincularInventarioItem(itemId) {
         Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
+        usuario_id: usuarioSelecionado.id,
         colaborador_nome: colaborador,
         setor,
         data_entrega: dataEntrega,

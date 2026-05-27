@@ -24,6 +24,37 @@ router.get('/list', authenticateToken, authorizeRoles('admin'), async (req, res)
   }
 });
 
+router.get('/search', authenticateToken, authorizeRoles('admin', 'creator'), async (req, res) => {
+  let connection;
+  try {
+    const term = String(req.query.term || '').trim();
+    if (term.length < 2) {
+      return res.status(400).json({ error: 'Digite pelo menos 2 caracteres para buscar usuario' });
+    }
+
+    const like = `%${term}%`;
+    connection = await pool.getConnection();
+    const [users] = await connection.query(
+      `SELECT id, username, name, email, role
+         FROM users
+        WHERE username LIKE ? OR name LIKE ? OR email LIKE ?
+        ORDER BY name ASC, username ASC
+        LIMIT 10`,
+      [like, like, like]
+    );
+
+    res.json(users.map(user => ({
+      ...user,
+      role: normalizeRole(user.role)
+    })));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao buscar usuarios' });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 router.post(
   '/create',
   authenticateToken,
