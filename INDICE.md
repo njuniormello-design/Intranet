@@ -127,6 +127,20 @@
 
 ---
 
+### [INVENTARIO_TI.md](INVENTARIO_TI.md) - Inventário de TI
+**Tempo de leitura:** 8 minutos  
+**O que você encontra:**
+- Objetivo do módulo
+- Tabelas do banco
+- Rotas da API
+- Regra de vínculo ativo único
+- Fluxo de cadastro, vínculo, devolução e histórico
+- Termo consolidado, anexo do termo assinado e importação da planilha CSV
+
+**Use como referência para organizar os dispositivos e imobilizados da TI.**
+
+---
+
 ## Como Usar Essa Documentação
 
 ### Se você quer **começar rápido** (30 min)
@@ -162,6 +176,7 @@ Intranet/
 ├── README.md .................... Docs completas
 ├── ARQUITETURA.md ............... Arquitetura
 ├── DIAGRAMAS.md ................. Visualizações
+├── INVENTARIO_TI.md ............. Inventário de TI
 ├── RESUMO.md .................... Overview
 ├── INDICE.md .................... Este arquivo
 └── backend/, frontend/, database/

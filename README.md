@@ -16,6 +16,7 @@ Um sistema web corporativo completo com funcionalidades de login, gestão de cha
 ✅ **Abertura de Chamados** - Criar, visualizar e gerenciar chamados com anexo de imagens
 ✅ **Comunicados** - Visualizar comunicados corporativos
 ✅ **Repositório de Documentos** - Upload, download e organização de documentos
+✅ **Inventário de TI** - Controle de dispositivos, patrimônio, imobilizado, vínculo com colaboradores e histórico
 
 ## Estrutura do Projeto
 
@@ -28,7 +29,8 @@ Intranet/
 │   │   ├── auth.js
 │   │   ├── chamados.js
 │   │   ├── comunicados.js
-│   │   └── documentos.js
+│   │   ├── documentos.js
+│   │   └── inventario.js
 │   ├── package.json
 │   ├── server.js
 │   └── .env
@@ -44,6 +46,10 @@ Intranet/
 │   └── schema.sql
 └── README.md
 ```
+
+Documentação específica do módulo:
+
+- [INVENTARIO_TI.md](INVENTARIO_TI.md)
 
 ## Pré-requisitos
 

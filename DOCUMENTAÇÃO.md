@@ -4,7 +4,7 @@
 
 ---
 
-### Funcionalidades Principais (10+)
+### Funcionalidades Principais (11+)
 
 | # | Funcionalidade | Status | Detalhes |
 |---|---|---|---|
@@ -18,6 +18,7 @@
 | 8 | **Banco de Dados** | ✅ | MySQL normalizado com 5 tabelas |
 | 9 | **Interface Responsiva** | ✅ | Desktop e mobile |
 | 10 | **Documentação Completa** | ✅ | 6 arquivos de documentação |
+| 11 | **Inventário de TI** | ✅ | Dispositivos, patrimônio, vínculos e histórico |
 
 ---
 
@@ -61,6 +62,7 @@ database/
 ├── CHECKLIST.md ................... Verificação passo a passo
 ├── ARQUITETURA.md ................. Detalhes técnicos
 ├── DIAGRAMAS.md ................... Fluxos e relacionamentos
+├── INVENTARIO_TI.md ................ Inventário de TI
 └── RESUMO.md ...................... Overview do projeto
 ```
 
@@ -487,6 +489,57 @@ Tempo em espera está vinculado aos status:
 aguardando_usuario
 aguardando_fornecedor
  Resolvido ficou de pausar o tempo e aguardar validação do user para depois fechar. Se o usuário não validar em 5 dias corridos, o backend fecha automaticamente o chamado.
+
+## Inventário de TI
+
+O sistema possui módulo de Inventário de TI integrado ao dashboard da intranet.
+
+Estrutura implementada:
+
+- `inventario_itens`: cadastro principal dos dispositivos, com tipo, marca, modelo, número de série, patrimônio, imobilizado, hostname, IP, MAC, setor, status e observações.
+- `inventario_vinculos`: vínculo do item com colaborador/usuário, data de entrega, data de devolução, termo de responsabilidade e status do vínculo.
+- `inventario_movimentacoes`: histórico de entrada, entrega, devolução, transferência, manutenção e baixa.
+- `inventario_termos`: arquivos dos termos assinados anexados ao vínculo ativo do item.
+
+Regra principal:
+
+Um item pode ter apenas um vínculo ativo por vez. Ao vincular um item que já está em uso, o vínculo anterior é encerrado como transferido, o novo vínculo é criado e a movimentação fica registrada no histórico.
+
+Status do item:
+
+em_uso, estoque, manutencao, baixado, emprestado, reservado, extraviado.
+
+Permissão:
+
+Todos os usuários autenticados podem acessar, listar e visualizar o Inventário TI. Apenas `admin` e `creator` podem cadastrar, editar, vincular, devolver, excluir itens, importar CSV e anexar termo assinado.
+
+Rotas principais:
+
+- `GET /api/inventario/summary`
+- `GET /api/inventario`
+- `GET /api/inventario/:id`
+- `POST /api/inventario`
+- `PUT /api/inventario/:id`
+- `DELETE /api/inventario/:id`
+- `POST /api/inventario/:id/vincular`
+- `POST /api/inventario/:id/devolver`
+- `GET /api/inventario/:id/historico`
+- `POST /api/inventario/:id/termo-assinado`
+- `GET /api/inventario/:id/termos`
+- `GET /api/inventario/termos/:termoId/download`
+- `POST /api/inventario/importar-csv`
+
+Termo de responsabilidade:
+
+Na aba Inventário TI, itens com vínculo ativo exibem o botão `Termo`. Ele abre um documento consolidado por colaborador, acumulando todos os dispositivos atualmente vinculados ao mesmo responsável. O documento contém dados do colaborador, lista de equipamentos, patrimônio/imobilizado, declaração de responsabilidade e campos de assinatura. Para gerar PDF, usar `Imprimir / Salvar PDF` no navegador.
+
+Termo assinado:
+
+Depois de imprimir, assinar e digitalizar, abrir `Ver` no item vinculado e usar `Anexar termo assinado`. O sistema aceita PDF ou imagem, registra o arquivo em `inventario_termos`, atualiza o vínculo com a referência do termo e adiciona movimentação do tipo `termo`.
+
+Importação da planilha da TI:
+
+Na aba Inventário TI há o formulário `Importar planilha da TI`. A planilha deve ser exportada em CSV. O importador reconhece colunas como PC, IP, Colaborador, Usuário, Responsável, Setor, Tipo de computador, Marca, Modelo, Número de série, Patrimônio, Imobilizado, MAC, Monitores, Ramal, Antivírus, USB Lock, Senha ADM e Observações. Cada linha cria um item e, se houver colaborador, também cria o vínculo ativo.
 ---
 
 ## CONCLUSÃO

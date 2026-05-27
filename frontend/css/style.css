@@ -963,6 +963,29 @@ html, body {
   color: #486554;
 }
 
+.status-badge.em_uso {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.estoque,
+.status-badge.reservado {
+  background-color: #e0f2fe;
+  color: #075985;
+}
+
+.status-badge.manutencao,
+.status-badge.emprestado {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.baixado,
+.status-badge.extraviado {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
 .status-badge.triagem,
 .status-badge.em_atendimento,
 .status-badge.em_andamento {

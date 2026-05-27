@@ -38,6 +38,7 @@ const funcionariosRoutes = require('./routes/funcionarios');
 const usuariosRoutes = require('./routes/usuarios');
 const ideiasRoutes = require('./routes/ideias');
 const infraestruturaRoutes = require('./routes/infraestrutura');
+const inventarioRoutes = require('./routes/inventario');
 
 // Usar rotas
 app.use('/api/auth', authRoutes);
@@ -48,6 +49,7 @@ app.use('/api/funcionarios', funcionariosRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/ideias', ideiasRoutes);
 app.use('/api/infraestrutura', infraestruturaRoutes);
+app.use('/api/inventario', inventarioRoutes);
 
 // Servir o frontend pelo mesmo servidor, sem impedir o uso do frontend separado
 app.use(express.static(frontendPath));
@@ -352,6 +354,96 @@ async function ensureDatabaseUpdates() {
         FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL,
         INDEX idx_infra_historico_chamado_id (chamado_id),
         INDEX idx_infra_historico_created_at (created_at)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inventario_itens (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        tipo VARCHAR(100) NOT NULL,
+        marca VARCHAR(100) NULL,
+        modelo VARCHAR(150) NULL,
+        numero_serie VARCHAR(150) NULL,
+        patrimonio VARCHAR(100) NULL,
+        imobilizado VARCHAR(100) NULL,
+        hostname VARCHAR(150) NULL,
+        ip VARCHAR(45) NULL,
+        mac_address VARCHAR(50) NULL,
+        setor VARCHAR(150) NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'estoque',
+        observacoes TEXT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_inventario_tipo (tipo),
+        INDEX idx_inventario_status (status),
+        INDEX idx_inventario_patrimonio (patrimonio),
+        INDEX idx_inventario_imobilizado (imobilizado),
+        INDEX idx_inventario_hostname (hostname),
+        INDEX idx_inventario_setor (setor)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inventario_vinculos (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        item_id INT NOT NULL,
+        usuario_id INT NULL,
+        colaborador_nome VARCHAR(150) NOT NULL,
+        setor VARCHAR(150) NULL,
+        data_entrega DATE NOT NULL,
+        data_devolucao DATE NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'ativo',
+        termo_responsabilidade VARCHAR(255) NULL,
+        observacoes TEXT NULL,
+        criado_por INT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (item_id) REFERENCES inventario_itens(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (criado_por) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_inventario_vinculos_item_status (item_id, status),
+        INDEX idx_inventario_vinculos_usuario (usuario_id),
+        INDEX idx_inventario_vinculos_colaborador (colaborador_nome),
+        INDEX idx_inventario_vinculos_setor (setor)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inventario_movimentacoes (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        item_id INT NOT NULL,
+        usuario_origem VARCHAR(150) NULL,
+        usuario_destino VARCHAR(150) NULL,
+        setor_origem VARCHAR(150) NULL,
+        setor_destino VARCHAR(150) NULL,
+        tipo_movimentacao VARCHAR(30) NOT NULL,
+        descricao TEXT NULL,
+        realizado_por INT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (item_id) REFERENCES inventario_itens(id) ON DELETE CASCADE,
+        FOREIGN KEY (realizado_por) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_inventario_mov_item (item_id),
+        INDEX idx_inventario_mov_tipo (tipo_movimentacao),
+        INDEX idx_inventario_mov_criado (criado_em)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inventario_termos (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        vinculo_id INT NOT NULL,
+        item_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_type VARCHAR(120) NULL,
+        file_size INT NULL,
+        uploaded_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (vinculo_id) REFERENCES inventario_vinculos(id) ON DELETE CASCADE,
+        FOREIGN KEY (item_id) REFERENCES inventario_itens(id) ON DELETE CASCADE,
+        FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_inventario_termos_vinculo (vinculo_id),
+        INDEX idx_inventario_termos_item (item_id),
+        INDEX idx_inventario_termos_created (created_at)
       )
     `);
   } finally {

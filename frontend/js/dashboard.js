@@ -71,8 +71,8 @@ const ROLE_LABELS = {
   user: 'Visualizador'
 };
 
-const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'funcionarios', 'usuarios'];
-const ALL_PAGES = ['dashboard', 'chamados', 'infraestrutura', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
+const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'inventario', 'funcionarios', 'usuarios'];
+const ALL_PAGES = ['dashboard', 'chamados', 'infraestrutura', 'inventario', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
 
 const RECENT_ANNOUNCEMENTS_LIMIT = 10;
 const DEFAULT_CHAMADO_METADATA = {
@@ -104,6 +104,7 @@ let infraChamadosCache = [];
 let comunicadosCache = [];
 let documentosCache = [];
 let funcionariosCache = [];
+let inventarioCache = [];
 let ideiasCache = [];
 let chamadosMetadata = DEFAULT_CHAMADO_METADATA;
 let infraMetadata = DEFAULT_INFRA_METADATA;
@@ -113,6 +114,7 @@ let editingChamadoData = null;
 let editingInfraChamadoData = null;
 let editingComunicadoId = null;
 let editingFuncionarioId = null;
+let editingInventarioItemId = null;
 let editingUsuarioId = null;
 
 function normalizeRole(role) {
@@ -140,6 +142,10 @@ function canManageCatalogs() {
 }
 
 function canManageFuncionarios() {
+  return ['admin', 'creator'].includes(getCurrentRole());
+}
+
+function canManageInventario() {
   return ['admin', 'creator'].includes(getCurrentRole());
 }
 
@@ -722,6 +728,26 @@ function applyRolePermissions() {
   if (infraReportSection) {
     infraReportSection.style.display = isAdmin() ? '' : 'none';
   }
+
+  const btnNovoInventarioItem = document.getElementById('btnNovoInventarioItem');
+  if (btnNovoInventarioItem) {
+    btnNovoInventarioItem.style.display = canManageInventario() ? '' : 'none';
+  }
+
+  const navInventario = document.getElementById('navInventario');
+  if (navInventario) {
+    navInventario.style.display = '';
+  }
+
+  const inventarioFormCard = document.getElementById('inventarioFormCard');
+  if (inventarioFormCard && !canManageInventario()) {
+    inventarioFormCard.style.display = 'none';
+  }
+
+  const inventarioImportCard = document.getElementById('inventarioImportCard');
+  if (inventarioImportCard) {
+    inventarioImportCard.style.display = canManageInventario() ? '' : 'none';
+  }
 }
 
 // Carregar página
@@ -756,6 +782,7 @@ function loadPage(page, evt) {
     dashboard: 'Dashboard',
     chamados: 'Chamados de TI',
     infraestrutura: 'Infraestrutura',
+    inventario: 'Inventário de TI',
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
     funcionarios: getFuncionariosTitle(),
@@ -776,6 +803,8 @@ function loadPage(page, evt) {
     loadChamados();
   } else if (page === 'infraestrutura') {
     loadInfraChamados();
+  } else if (page === 'inventario') {
+    loadInventario();
   } else if (page === 'comunicados') {
     loadComunicados();
   } else if (page === 'documentos') {
@@ -2270,6 +2299,721 @@ function downloadInfraAttachment(attachmentId, fileName) {
       window.URL.revokeObjectURL(url);
     })
     .catch(error => alert('Erro ao fazer download: ' + error.message));
+}
+
+// ==================== INVENTÁRIO DE TI ====================
+const INVENTARIO_STATUS_LABELS = {
+  em_uso: 'Em uso',
+  estoque: 'Em estoque',
+  manutencao: 'Em manutenção',
+  baixado: 'Baixado',
+  emprestado: 'Emprestado',
+  reservado: 'Reservado',
+  extraviado: 'Extraviado'
+};
+
+function getInventarioStatusLabel(status) {
+  return INVENTARIO_STATUS_LABELS[status] || humanizeOptionLabel(status || '-');
+}
+
+function getInventarioFormData() {
+  return {
+    tipo: getFieldValue('invTipo'),
+    status: getFieldValue('invStatus') || 'estoque',
+    setor: getFieldValue('invSetor'),
+    marca: getFieldValue('invMarca'),
+    modelo: getFieldValue('invModelo'),
+    numero_serie: getFieldValue('invSerie'),
+    patrimonio: getFieldValue('invPatrimonio'),
+    imobilizado: getFieldValue('invImobilizado'),
+    hostname: getFieldValue('invHostname'),
+    ip: getFieldValue('invIp'),
+    mac_address: getFieldValue('invMac'),
+    observacoes: getFieldValue('invObservacoes')
+  };
+}
+
+function setInventarioFormData(item = {}) {
+  const fields = {
+    invTipo: item.tipo || '',
+    invStatus: item.status || 'estoque',
+    invSetor: item.setor || item.setor_atual || '',
+    invMarca: item.marca || '',
+    invModelo: item.modelo || '',
+    invSerie: item.numero_serie || '',
+    invPatrimonio: item.patrimonio || '',
+    invImobilizado: item.imobilizado || '',
+    invHostname: item.hostname || '',
+    invIp: item.ip || '',
+    invMac: item.mac_address || '',
+    invObservacoes: item.observacoes || ''
+  };
+
+  Object.entries(fields).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) field.value = value;
+  });
+}
+
+function showInventarioForm(itemId = null) {
+  if (!canManageInventario()) {
+    alert('Seu perfil não tem acesso a este cadastro.');
+    return;
+  }
+
+  editingInventarioItemId = itemId ? Number(itemId) : null;
+  const item = editingInventarioItemId
+    ? inventarioCache.find(entry => Number(entry.id) === editingInventarioItemId)
+    : null;
+
+  setInventarioFormData(item || {});
+  const title = document.getElementById('inventarioFormTitle');
+  if (title) title.textContent = editingInventarioItemId ? 'Editar item' : 'Cadastrar item';
+  const form = document.getElementById('inventarioFormCard');
+  if (form) form.style.display = 'block';
+}
+
+function hideInventarioForm() {
+  editingInventarioItemId = null;
+  setInventarioFormData({});
+  const form = document.getElementById('inventarioFormCard');
+  if (form) form.style.display = 'none';
+}
+
+async function loadInventarioSummary() {
+  try {
+    const response = await fetch(`${API_URL}/inventario/summary`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    const byStatus = Object.fromEntries((data.byStatus || []).map(row => [row.status, Number(row.total || 0)]));
+    const setText = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+    setText('inventarioTotal', data.total || 0);
+    setText('inventarioEmUso', byStatus.em_uso || 0);
+    setText('inventarioEstoque', byStatus.estoque || 0);
+    setText('inventarioPendencias', Number(data.semImobilizado || 0) + Number(data.semVinculo || 0));
+  } catch (error) {
+    console.error('Erro ao carregar resumo do inventário:', error);
+  }
+}
+
+function getInventarioFilters() {
+  return {
+    search: getFieldValue('inventarioSearch'),
+    status: getFieldValue('inventarioStatusFilter'),
+    setor: getFieldValue('inventarioSetorFilter')
+  };
+}
+
+async function loadInventario() {
+  const tableBody = document.getElementById('inventarioTableBody');
+  if (!tableBody) return;
+  tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">Carregando...</td></tr>';
+
+  const params = new URLSearchParams();
+  const filters = getInventarioFilters();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+
+  try {
+    await loadInventarioSummary();
+    const response = await fetch(`${API_URL}/inventario${params.toString() ? `?${params.toString()}` : ''}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Erro ao carregar inventário');
+    inventarioCache = Array.isArray(data) ? data : [];
+    renderInventarioTable();
+  } catch (error) {
+    console.error('Erro ao carregar inventário:', error);
+    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:red; padding:20px;">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderInventarioTable() {
+  const tableBody = document.getElementById('inventarioTableBody');
+  if (!tableBody) return;
+
+  if (!inventarioCache.length) {
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">Nenhum item encontrado</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = inventarioCache.map(item => {
+    const itemTitle = [item.tipo, item.marca, item.modelo].filter(Boolean).join(' ');
+    const rede = [item.hostname, item.ip].filter(Boolean).join(' / ') || '-';
+    const canManage = canManageInventario();
+    return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(itemTitle || '-')}</strong><br>
+          <small>Série: ${escapeHtml(item.numero_serie || '-')}</small>
+        </td>
+        <td>${escapeHtml(item.patrimonio || '-')}</td>
+        <td>${escapeHtml(item.imobilizado || '-')}</td>
+        <td>${escapeHtml(item.usuario_atual || '-')}</td>
+        <td>${escapeHtml(item.setor_atual || '-')}</td>
+        <td>${escapeHtml(rede)}</td>
+        <td><span class="status-badge ${escapeHtml(item.status || '')}">${escapeHtml(getInventarioStatusLabel(item.status))}</span></td>
+        <td>
+          <button class="btn btn-secondary" onclick="showInventarioDetails(${item.id})">Ver</button>
+          ${canManage ? `<button class="btn btn-primary" onclick="showInventarioForm(${item.id})">Editar</button>` : ''}
+          ${canManage ? `<button class="btn btn-secondary" onclick="vincularInventarioItem(${item.id})">Vincular</button>` : ''}
+          ${item.vinculo_id ? `<button class="btn btn-primary" onclick="imprimirTermoInventarioItem(${item.id})">Termo consolidado</button>` : ''}
+          ${canManage && item.vinculo_id ? `<button class="btn btn-danger" onclick="devolverInventarioItem(${item.id})">Devolver</button>` : ''}
+          ${canManage && !item.vinculo_id ? `<button class="btn btn-danger" onclick="excluirInventarioItem(${item.id})">Excluir</button>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function limparFiltrosInventario() {
+  ['inventarioSearch', 'inventarioStatusFilter', 'inventarioSetorFilter'].forEach(id => {
+    const field = document.getElementById(id);
+    if (field) field.value = '';
+  });
+  loadInventario();
+}
+
+const formInventarioItem = document.getElementById('formInventarioItem');
+if (formInventarioItem) {
+  formInventarioItem.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!canManageInventario()) {
+      alert('Seu perfil não tem acesso a este cadastro.');
+      return;
+    }
+
+    const payload = getInventarioFormData();
+    const errors = [];
+    if (!validateLength(payload.tipo, 2, 100)) errors.push('Tipo deve ter entre 2 e 100 caracteres');
+    if (payload.setor && !validateLength(payload.setor, 0, 150)) errors.push('Setor deve ter no máximo 150 caracteres');
+    if (showValidationAlert(errors)) return;
+
+    try {
+      const response = await fetch(`${API_URL}/inventario${editingInventarioItemId ? `/${editingInventarioItemId}` : ''}`, {
+        method: editingInventarioItemId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || data.errors?.[0]?.msg || 'Erro ao salvar item');
+      hideInventarioForm();
+      await loadInventario();
+      alert(data.message || 'Item salvo com sucesso');
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+}
+
+const formInventarioImport = document.getElementById('formInventarioImport');
+if (formInventarioImport) {
+  formInventarioImport.addEventListener('submit', importarInventarioCsv);
+}
+
+async function importarInventarioCsv(event) {
+  event.preventDefault();
+  if (!canManageInventario()) {
+    alert('Seu perfil não tem acesso a esta importação.');
+    return;
+  }
+
+  const input = document.getElementById('inventarioCsvFile');
+  const file = input?.files?.[0];
+  if (!file) {
+    alert('Selecione o arquivo CSV da planilha de TI.');
+    return;
+  }
+
+  if (!confirm('Importar a planilha agora? Novos itens e vínculos serão criados no inventário.')) return;
+
+  const formData = new FormData();
+  formData.append('planilha', file);
+
+  try {
+    const response = await fetch(`${API_URL}/inventario/importar-csv`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Erro ao importar planilha');
+
+    formInventarioImport.reset();
+    await loadInventario();
+
+    const erros = Array.isArray(data.erros) && data.erros.length
+      ? `\n\nLinhas com erro:\n${data.erros.slice(0, 10).map(err => `Linha ${err.linha}: ${err.erro}`).join('\n')}`
+      : '';
+    alert(`${data.message || 'Importação concluída.'}${erros}`);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function vincularInventarioItem(itemId) {
+  const item = inventarioCache.find(entry => Number(entry.id) === Number(itemId));
+  const colaborador = prompt('Nome do colaborador responsável:', item?.usuario_atual || '');
+  if (!colaborador) return;
+  const setor = prompt('Setor do colaborador:', item?.setor_atual || item?.setor || '') || '';
+  const dataEntrega = prompt('Data de entrega (AAAA-MM-DD):', new Date().toISOString().slice(0, 10)) || '';
+  const observacoes = prompt('Motivo/observações da entrega ou transferência:', item?.usuario_atual ? 'Transferência de equipamento' : 'Entrega de equipamento') || '';
+
+  try {
+    const response = await fetch(`${API_URL}/inventario/${itemId}/vincular`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        colaborador_nome: colaborador,
+        setor,
+        data_entrega: dataEntrega,
+        observacoes
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || data.errors?.[0]?.msg || 'Erro ao vincular item');
+    await loadInventario();
+    alert(data.message || 'Item vinculado com sucesso');
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function devolverInventarioItem(itemId) {
+  if (!confirm('Registrar devolução deste item?')) return;
+  const dataDevolucao = prompt('Data de devolução (AAAA-MM-DD):', new Date().toISOString().slice(0, 10)) || '';
+  const novoStatus = prompt('Novo status: estoque, manutencao ou baixado', 'estoque') || 'estoque';
+  const observacoes = prompt('Observações da devolução:', 'Devolução de equipamento') || '';
+
+  try {
+    const response = await fetch(`${API_URL}/inventario/${itemId}/devolver`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ data_devolucao: dataDevolucao, novo_status: novoStatus, observacoes })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || data.errors?.[0]?.msg || 'Erro ao devolver item');
+    await loadInventario();
+    alert(data.message || 'Devolução registrada com sucesso');
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function excluirInventarioItem(itemId) {
+  if (!confirm('Excluir este item do inventário? Para auditoria, prefira alterar o status para Baixado quando o item existiu de verdade.')) return;
+
+  try {
+    const response = await fetch(`${API_URL}/inventario/${itemId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Erro ao excluir item');
+    await loadInventario();
+    alert(data.message || 'Item excluído com sucesso');
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+function getInventarioItemLabel(item) {
+  return [item?.tipo, item?.marca, item?.modelo].filter(Boolean).join(' ') || 'Item de inventário';
+}
+
+function buildInventarioTermoHtml(item, vinculo) {
+  const generatedAt = new Date().toLocaleDateString('pt-BR');
+  const entrega = vinculo?.data_entrega ? formatDateToPtBr(vinculo.data_entrega) : generatedAt;
+  const colaborador = vinculo?.colaborador_nome || item?.usuario_atual || '-';
+  const setor = vinculo?.setor || item?.setor_atual || item?.setor || '-';
+  const itemLabel = getInventarioItemLabel(item);
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Termo de Responsabilidade - ${escapeHtml(itemLabel)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #111827; margin: 0; padding: 32px; line-height: 1.45; }
+    .toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 24px; }
+    button { border: 0; border-radius: 6px; padding: 10px 14px; cursor: pointer; font-weight: 700; }
+    .primary { background: #0d6efd; color: #fff; }
+    .secondary { background: #e5e7eb; color: #111827; }
+    .term { max-width: 860px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 22px; margin: 8px 0 22px; text-transform: uppercase; }
+    h2 { font-size: 15px; margin: 24px 0 10px; border-bottom: 1px solid #d1d5db; padding-bottom: 6px; }
+    .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+    .box { border: 1px solid #d1d5db; border-radius: 8px; padding: 14px; margin: 12px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; }
+    .statement { text-align: justify; margin-top: 16px; }
+    .signatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; margin-top: 72px; }
+    .signature { text-align: center; border-top: 1px solid #111827; padding-top: 8px; min-height: 56px; }
+    .footer { margin-top: 36px; font-size: 12px; color: #4b5563; text-align: center; }
+    @media print {
+      body { padding: 18mm; }
+      .toolbar { display: none; }
+      .term { max-width: none; }
+      @page { margin: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="secondary" onclick="window.close()">Fechar</button>
+    <button class="primary" onclick="window.print()">Imprimir / Salvar PDF</button>
+  </div>
+
+  <main class="term">
+    <h1>Termo de Responsabilidade de Equipamento de TI</h1>
+    <div class="box">
+      <div class="meta">
+        <div><strong>Colaborador:</strong> ${escapeHtml(colaborador)}</div>
+        <div><strong>Setor:</strong> ${escapeHtml(setor)}</div>
+        <div><strong>Data de entrega:</strong> ${escapeHtml(entrega)}</div>
+        <div><strong>Termo gerado em:</strong> ${escapeHtml(generatedAt)}</div>
+      </div>
+    </div>
+
+    <h2>Equipamento Entregue</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Equipamento</th>
+          <th>Patrimônio</th>
+          <th>Imobilizado</th>
+          <th>Número de série</th>
+          <th>Hostname / IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${escapeHtml(itemLabel)}</td>
+          <td>${escapeHtml(item?.patrimonio || '-')}</td>
+          <td>${escapeHtml(item?.imobilizado || '-')}</td>
+          <td>${escapeHtml(item?.numero_serie || '-')}</td>
+          <td>${escapeHtml([item?.hostname, item?.ip].filter(Boolean).join(' / ') || '-')}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Declaração</h2>
+    <p class="statement">
+      Declaro que recebi o equipamento relacionado acima em condições de uso e assumo a responsabilidade por sua guarda,
+      conservação e uso adequado exclusivamente para atividades profissionais. Comprometo-me a comunicar imediatamente
+      à área de TI qualquer perda, dano, falha, furto, extravio ou necessidade de manutenção, bem como devolver o equipamento
+      quando solicitado pela empresa.
+    </p>
+
+    <h2>Observações</h2>
+    <div class="box">${escapeHtml(vinculo?.observacoes || item?.observacoes || 'Sem observações.')}</div>
+
+    <div class="signatures">
+      <div class="signature">${escapeHtml(colaborador)}<br>Colaborador</div>
+      <div class="signature">${escapeHtml(currentUser.name || currentUser.username || 'TI')}<br>Responsável TI</div>
+    </div>
+
+    <div class="footer">Documento gerado pela Intranet LI - Inventário de TI.</div>
+  </main>
+</body>
+</html>`;
+}
+
+function buildInventarioTermoConsolidadoHtml(responsavel, itens) {
+  const generatedAt = new Date().toLocaleDateString('pt-BR');
+  const colaborador = responsavel?.colaborador_nome || '-';
+  const setor = responsavel?.setor || itens?.[0]?.setor_atual || '-';
+  const primeiraEntrega = (itens || []).map(item => item.data_entrega).filter(Boolean).sort()[0];
+  const dataReferencia = primeiraEntrega ? formatDateToPtBr(primeiraEntrega) : generatedAt;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Termo de Responsabilidade - ${escapeHtml(colaborador)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #111827; margin: 0; padding: 32px; line-height: 1.45; }
+    .toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 24px; }
+    button { border: 0; border-radius: 6px; padding: 10px 14px; cursor: pointer; font-weight: 700; }
+    .primary { background: #0d6efd; color: #fff; }
+    .secondary { background: #e5e7eb; color: #111827; }
+    .term { max-width: 920px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 22px; margin: 8px 0 22px; text-transform: uppercase; }
+    h2 { font-size: 15px; margin: 24px 0 10px; border-bottom: 1px solid #d1d5db; padding-bottom: 6px; }
+    .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+    .box { border: 1px solid #d1d5db; border-radius: 8px; padding: 14px; margin: 12px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; }
+    .statement { text-align: justify; margin-top: 16px; }
+    .signatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; margin-top: 72px; }
+    .signature { text-align: center; border-top: 1px solid #111827; padding-top: 8px; min-height: 56px; }
+    .footer { margin-top: 36px; font-size: 12px; color: #4b5563; text-align: center; }
+    @media print {
+      body { padding: 18mm; }
+      .toolbar { display: none; }
+      .term { max-width: none; }
+      @page { margin: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="secondary" onclick="window.close()">Fechar</button>
+    <button class="primary" onclick="window.print()">Imprimir / Salvar PDF</button>
+  </div>
+
+  <main class="term">
+    <h1>Termo de Responsabilidade de Equipamentos de TI</h1>
+    <div class="box">
+      <div class="meta">
+        <div><strong>Colaborador:</strong> ${escapeHtml(colaborador)}</div>
+        <div><strong>Setor:</strong> ${escapeHtml(setor)}</div>
+        <div><strong>Data de referência:</strong> ${escapeHtml(dataReferencia)}</div>
+        <div><strong>Termo gerado em:</strong> ${escapeHtml(generatedAt)}</div>
+        <div><strong>Total de itens:</strong> ${escapeHtml(String((itens || []).length))}</div>
+      </div>
+    </div>
+
+    <h2>Equipamentos sob responsabilidade</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Equipamento</th>
+          <th>Patrimônio</th>
+          <th>Imobilizado</th>
+          <th>Número de série</th>
+          <th>Hostname / IP</th>
+          <th>Entrega</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(itens || []).map(item => `
+          <tr>
+            <td>${escapeHtml(getInventarioItemLabel(item))}</td>
+            <td>${escapeHtml(item?.patrimonio || '-')}</td>
+            <td>${escapeHtml(item?.imobilizado || '-')}</td>
+            <td>${escapeHtml(item?.numero_serie || '-')}</td>
+            <td>${escapeHtml([item?.hostname, item?.ip].filter(Boolean).join(' / ') || '-')}</td>
+            <td>${escapeHtml(item?.data_entrega ? formatDateToPtBr(item.data_entrega) : '-')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+
+    <h2>Declaração</h2>
+    <p class="statement">
+      Declaro que recebi os equipamentos relacionados acima em condições de uso e assumo a responsabilidade por sua guarda,
+      conservação e uso adequado exclusivamente para atividades profissionais. Comprometo-me a comunicar imediatamente
+      à área de TI qualquer perda, dano, falha, furto, extravio ou necessidade de manutenção, bem como devolver os equipamentos
+      quando solicitado pela empresa.
+    </p>
+
+    <div class="signatures">
+      <div class="signature">${escapeHtml(colaborador)}<br>Colaborador</div>
+      <div class="signature">${escapeHtml(currentUser.name || currentUser.username || 'TI')}<br>Responsável TI</div>
+    </div>
+
+    <div class="footer">Documento gerado pela Intranet LI - Inventário de TI.</div>
+  </main>
+</body>
+</html>`;
+}
+
+async function imprimirTermoInventarioItem(itemId) {
+  try {
+    const response = await fetch(`${API_URL}/inventario/${itemId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) throw new Error(data.error || 'Erro ao gerar termo');
+
+    const item = data.item;
+    const vinculoAtivo = (data.vinculos || []).find(vinculo => vinculo.status === 'ativo');
+    if (!vinculoAtivo && !item?.vinculo_id) {
+      alert('Este item não possui vínculo ativo para gerar termo.');
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (vinculoAtivo?.usuario_id) {
+      params.set('usuario_id', vinculoAtivo.usuario_id);
+    } else {
+      params.set('colaborador_nome', vinculoAtivo?.colaborador_nome || item.usuario_atual);
+    }
+
+    const termoResponse = await fetch(`${API_URL}/inventario/termo/responsavel?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const termoData = await readApiResponse(termoResponse);
+    if (!termoResponse.ok) throw new Error(termoData.error || 'Erro ao gerar termo consolidado');
+
+    const termoWindow = window.open('', '_blank', 'width=1000,height=800');
+    if (!termoWindow) {
+      alert('Não foi possível abrir a janela do termo. Verifique o bloqueador de pop-ups.');
+      return;
+    }
+
+    termoWindow.document.open();
+    termoWindow.document.write(buildInventarioTermoConsolidadoHtml(termoData.responsavel, termoData.itens));
+    termoWindow.document.close();
+    termoWindow.focus();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+function renderInventarioTermos(termos = []) {
+  if (!Array.isArray(termos) || !termos.length) {
+    return '<p>Nenhum termo assinado anexado.</p>';
+  }
+
+  return `
+    <div style="display:grid; gap:8px;">
+      ${termos.map(termo => {
+        const fileName = fixEncodingText(termo.file_name || 'Termo assinado');
+        return `
+        <div style="border:1px solid #ddd; border-radius:6px; padding:10px; display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div>
+            <strong>${escapeHtml(fileName)}</strong><br>
+            <small>${escapeHtml(termo.uploaded_by_nome || 'TI')} - ${termo.created_at ? new Date(termo.created_at).toLocaleString('pt-BR') : ''}</small>
+          </div>
+          <button class="btn btn-secondary" data-termo-id="${termo.id}" data-file-name="${escapeHtml(fileName)}" onclick="downloadTermoInventario(Number(this.dataset.termoId), this.dataset.fileName)">Baixar</button>
+        </div>
+      `;
+      }).join('')}
+    </div>
+  `;
+}
+
+async function uploadTermoAssinadoInventario(itemId) {
+  if (!canManageInventario()) {
+    alert('Seu perfil não tem acesso a esta ação.');
+    return;
+  }
+
+  const input = document.getElementById('inventarioTermoAssinadoFile');
+  const file = input?.files?.[0];
+  if (!file) {
+    alert('Selecione o PDF ou imagem do termo assinado.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('termo', file);
+
+  try {
+    const response = await fetch(`${API_URL}/inventario/${itemId}/termo-assinado`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Erro ao anexar termo assinado');
+    alert(data.message || 'Termo anexado com sucesso');
+    await showInventarioDetails(itemId);
+    await loadInventario();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function downloadTermoInventario(termoId, fileName = 'termo-assinado') {
+  try {
+    const response = await fetch(`${API_URL}/inventario/termos/${termoId}/download`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const data = await readApiResponse(response);
+      throw new Error(data.error || 'Erro ao baixar termo');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fixEncodingText(fileName || 'termo-assinado');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function showInventarioDetails(itemId) {
+  try {
+    const response = await fetch(`${API_URL}/inventario/${itemId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Erro ao abrir item');
+
+    const item = data.item;
+    const modal = document.getElementById('chamadoModal');
+    const details = document.getElementById('chamadoDetails');
+    if (!modal || !details) return;
+
+    details.innerHTML = `
+      <h3>${escapeHtml([item.tipo, item.marca, item.modelo].filter(Boolean).join(' ') || 'Item de inventário')}</h3>
+      <p><strong>Status:</strong> ${escapeHtml(getInventarioStatusLabel(item.status))}</p>
+      <p><strong>Usuário atual:</strong> ${escapeHtml(item.usuario_atual || '-')}</p>
+      <p><strong>Setor atual:</strong> ${escapeHtml(item.setor_atual || '-')}</p>
+      <p><strong>Patrimônio:</strong> ${escapeHtml(item.patrimonio || '-')}</p>
+      <p><strong>Imobilizado:</strong> ${escapeHtml(item.imobilizado || '-')}</p>
+      <p><strong>Número de série:</strong> ${escapeHtml(item.numero_serie || '-')}</p>
+      <p><strong>Hostname/IP/MAC:</strong> ${escapeHtml([item.hostname, item.ip, item.mac_address].filter(Boolean).join(' / ') || '-')}</p>
+      <p><strong>Observações:</strong> ${escapeHtml(item.observacoes || '-')}</p>
+      ${item.vinculo_id ? `<button class="btn btn-primary" onclick="imprimirTermoInventarioItem(${item.id})">Gerar termo consolidado para assinatura</button>` : ''}
+      <h3 style="margin-top:20px;">Termo assinado</h3>
+      ${item.vinculo_id && canManageInventario() ? `
+        <div style="border:1px solid #ddd; border-radius:6px; padding:10px; margin-bottom:10px;">
+          <div class="form-group">
+            <label for="inventarioTermoAssinadoFile">Anexar PDF ou imagem assinada</label>
+            <input type="file" id="inventarioTermoAssinadoFile" accept=".pdf,image/*">
+          </div>
+          <button class="btn btn-primary" onclick="uploadTermoAssinadoInventario(${item.id})">Anexar termo assinado</button>
+        </div>
+      ` : ''}
+      ${renderInventarioTermos(data.termos || [])}
+      <h3 style="margin-top:20px;">Histórico de movimentações</h3>
+      <div style="display:grid; gap:8px;">
+        ${(data.historico || []).map(mov => `
+          <div style="border:1px solid #ddd; border-radius:6px; padding:10px;">
+            <strong>${escapeHtml(humanizeOptionLabel(mov.tipo_movimentacao))}</strong>
+            <span style="color:#666;">${mov.criado_em ? new Date(mov.criado_em).toLocaleString('pt-BR') : ''}</span>
+            <div>${escapeHtml(mov.usuario_origem || '-')} → ${escapeHtml(mov.usuario_destino || '-')}</div>
+            <div>${escapeHtml(mov.setor_origem || '-')} → ${escapeHtml(mov.setor_destino || '-')}</div>
+            <div>${escapeHtml(mov.descricao || '')}</div>
+          </div>
+        `).join('') || '<p>Nenhuma movimentação registrada.</p>'}
+      </div>
+    `;
+    modal.querySelector('h2').textContent = 'Detalhes do Inventário';
+    modal.style.display = 'flex';
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 // ==================== COMUNICADOS ====================
@@ -3927,8 +4671,39 @@ function ensureChamadosReportAccess() {
   return true;
 }
 
+function countEncodingArtifacts(value) {
+  const text = String(value || '');
+  return (text.match(/[ÃÂ]/g) || []).length + ((text.match(/�/g) || []).length * 5);
+}
+
+function fixEncodingText(value) {
+  if (value === undefined || value === null) return '';
+  let best = String(value);
+  let bestScore = countEncodingArtifacts(best);
+
+  if (!/[ÃÂ]/.test(best) || typeof TextDecoder === 'undefined') return best;
+
+  for (let attempt = 0; attempt < 2 && /[ÃÂ]/.test(best); attempt += 1) {
+    try {
+      const bytes = Uint8Array.from(Array.from(best), char => char.charCodeAt(0) & 0xff);
+      const repaired = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+      const score = countEncodingArtifacts(repaired);
+      if (score < bestScore) {
+        best = repaired;
+        bestScore = score;
+      } else {
+        break;
+      }
+    } catch (error) {
+      break;
+    }
+  }
+
+  return best;
+}
+
 function escapeHtml(value) {
-  return String(value ?? '')
+  return fixEncodingText(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
