@@ -2431,7 +2431,7 @@ async function loadInventario() {
     renderInventarioTable();
   } catch (error) {
     console.error('Erro ao carregar inventário:', error);
-    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:red; padding:20px;">${escapeHtml(error.message)}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red; padding:20px;">${escapeHtml(error.message)}</td></tr>`;
   }
 }
 
@@ -2440,7 +2440,7 @@ function renderInventarioTable() {
   if (!tableBody) return;
 
   if (!inventarioCache.length) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">Nenhum item encontrado</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Nenhum item encontrado</td></tr>';
     return;
   }
 
@@ -2454,7 +2454,6 @@ function renderInventarioTable() {
           <strong>${escapeHtml(itemTitle || '-')}</strong><br>
           <small>Série: ${escapeHtml(item.numero_serie || '-')}</small>
         </td>
-        <td>${escapeHtml(item.patrimonio || '-')}</td>
         <td>${escapeHtml(item.imobilizado || '-')}</td>
         <td>${escapeHtml(item.usuario_atual || '-')}</td>
         <td>${escapeHtml(item.setor_atual || '-')}</td>
@@ -2464,7 +2463,6 @@ function renderInventarioTable() {
           <button class="btn btn-secondary" onclick="showInventarioDetails(${item.id})">Ver</button>
           ${canManage ? `<button class="btn btn-primary" onclick="showInventarioForm(${item.id})">Editar</button>` : ''}
           ${canManage ? `<button class="btn btn-secondary" onclick="vincularInventarioItem(${item.id})">Vincular</button>` : ''}
-          ${item.vinculo_id ? `<button class="btn btn-primary" onclick="imprimirTermoInventarioItem(${item.id})">Termo consolidado</button>` : ''}
           ${canManage && item.vinculo_id ? `<button class="btn btn-danger" onclick="devolverInventarioItem(${item.id})">Devolver</button>` : ''}
           ${canManage && !item.vinculo_id ? `<button class="btn btn-danger" onclick="excluirInventarioItem(${item.id})">Excluir</button>` : ''}
         </td>
