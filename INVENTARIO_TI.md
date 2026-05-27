@@ -152,7 +152,8 @@ Base: `/api/inventario`
 
 ## Permissões
 
-- Todos os usuários autenticados podem acessar, listar e visualizar o módulo de Inventário TI.
+- Todos os usuários autenticados podem acessar o módulo de Inventário TI.
+- Usuários sem perfil `admin` ou `creator` visualizam somente os itens com vínculo ativo para o próprio `usuario_id` ou para o mesmo nome cadastrado no usuário.
 - Apenas `admin` e `creator` podem cadastrar, editar, vincular, devolver, excluir itens, anexar termos assinados e importar planilhas.
 - Item com vínculo ativo não pode ser excluído. Primeiro deve ser registrada a devolução.
 

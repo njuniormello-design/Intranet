@@ -224,6 +224,33 @@ function mapTerm(row) {
   };
 }
 
+function isInventoryManager(req) {
+  return ['admin', 'creator'].includes(String(req.user?.role || '').toLowerCase());
+}
+
+function getCurrentUserName(req) {
+  return normalizeString(req.user?.name, 150) || normalizeString(req.user?.username, 150) || '';
+}
+
+function addInventoryVisibilityScope(req, where, params, alias = 'v') {
+  if (isInventoryManager(req)) return;
+  where.push(`(
+    ${alias}.status = 'ativo'
+    AND (
+      ${alias}.usuario_id = ?
+      OR LOWER(TRIM(${alias}.colaborador_nome)) = LOWER(TRIM(?))
+    )
+  )`);
+  params.push(req.user.id, getCurrentUserName(req));
+}
+
+function canViewInventoryItem(req, item) {
+  if (isInventoryManager(req)) return true;
+  if (!item || item.vinculo_status !== 'ativo') return false;
+  if (Number(item.usuario_id) === Number(req.user.id)) return true;
+  return String(item.colaborador_nome || '').trim().toLowerCase() === getCurrentUserName(req).trim().toLowerCase();
+}
+
 async function fetchItemById(connection, id) {
   const [items] = await connection.query(
     `SELECT i.*,
@@ -283,25 +310,50 @@ router.get('/summary', authenticateToken, async (req, res) => {
   let connection;
   try {
     connection = await pool.getConnection();
-    const [[totalRow]] = await connection.query('SELECT COUNT(*) AS total FROM inventario_itens');
-    const [byStatus] = await connection.query('SELECT status, COUNT(*) AS total FROM inventario_itens GROUP BY status');
-    const [[semImobilizado]] = await connection.query(
-      "SELECT COUNT(*) AS total FROM inventario_itens WHERE (imobilizado IS NULL OR imobilizado = '') AND (patrimonio IS NULL OR patrimonio = '')"
+
+    const scopeWhere = [];
+    const scopeParams = [];
+    addInventoryVisibilityScope(req, scopeWhere, scopeParams);
+    const scopedJoin = "LEFT JOIN inventario_vinculos v ON v.item_id = i.id AND v.status = 'ativo'";
+    const scopedWhere = scopeWhere.length ? `WHERE ${scopeWhere.join(' AND ')}` : '';
+
+    const [[totalRow]] = await connection.query(
+      `SELECT COUNT(DISTINCT i.id) AS total FROM inventario_itens i ${scopedJoin} ${scopedWhere}`,
+      scopeParams
     );
-    const [[semVinculo]] = await connection.query(
-      `SELECT COUNT(*) AS total
+    const [byStatus] = await connection.query(
+      `SELECT i.status, COUNT(DISTINCT i.id) AS total
          FROM inventario_itens i
-        WHERE NOT EXISTS (
-          SELECT 1 FROM inventario_vinculos v WHERE v.item_id = i.id AND v.status = 'ativo'
-        )`
+         ${scopedJoin}
+        ${scopedWhere}
+        GROUP BY i.status`,
+      scopeParams
     );
+    const [[semImobilizado]] = await connection.query(
+      `SELECT COUNT(DISTINCT i.id) AS total
+         FROM inventario_itens i
+         ${scopedJoin}
+        ${scopedWhere ? `${scopedWhere} AND` : 'WHERE'} (i.imobilizado IS NULL OR i.imobilizado = '') AND (i.patrimonio IS NULL OR i.patrimonio = '')`,
+      scopeParams
+    );
+    const [[semVinculo]] = isInventoryManager(req)
+      ? await connection.query(
+        `SELECT COUNT(*) AS total
+           FROM inventario_itens i
+          WHERE NOT EXISTS (
+            SELECT 1 FROM inventario_vinculos v WHERE v.item_id = i.id AND v.status = 'ativo'
+          )`
+      )
+      : [[{ total: 0 }]];
     const [bySetor] = await connection.query(
       `SELECT COALESCE(v.setor, i.setor, 'Sem setor') AS setor, COUNT(*) AS total
          FROM inventario_itens i
-         LEFT JOIN inventario_vinculos v ON v.item_id = i.id AND v.status = 'ativo'
+         ${scopedJoin}
+        ${scopedWhere}
         GROUP BY COALESCE(v.setor, i.setor, 'Sem setor')
         ORDER BY total DESC, setor ASC
-        LIMIT 12`
+        LIMIT 12`,
+      scopeParams
     );
 
     res.json({
@@ -360,6 +412,7 @@ router.get('/', authenticateToken, async (req, res) => {
       const like = `%${filters.search}%`;
       params.push(like, like, like, like, like, like, like, like, like);
     }
+    addInventoryVisibilityScope(req, where, params);
 
     connection = await pool.getConnection();
     const [items] = await connection.query(
@@ -389,16 +442,21 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/termo/responsavel', authenticateToken, async (req, res) => {
   let connection;
   try {
-    const usuarioId = req.query.usuario_id ? Number(req.query.usuario_id) : null;
-    const colaboradorNome = normalizeString(req.query.colaborador_nome, 150);
+    const usuarioId = isInventoryManager(req) && req.query.usuario_id ? Number(req.query.usuario_id) : null;
+    const colaboradorNome = isInventoryManager(req)
+      ? normalizeString(req.query.colaborador_nome, 150)
+      : getCurrentUserName(req);
 
-    if (!usuarioId && !colaboradorNome) {
+    if (isInventoryManager(req) && !usuarioId && !colaboradorNome) {
       return res.status(400).json({ error: 'Informe o usuário ou colaborador para gerar o termo' });
     }
 
     const where = ["v.status = 'ativo'"];
     const params = [];
-    if (usuarioId) {
+    if (!isInventoryManager(req)) {
+      where.push('(v.usuario_id = ? OR LOWER(TRIM(v.colaborador_nome)) = LOWER(TRIM(?)))');
+      params.push(req.user.id, colaboradorNome);
+    } else if (usuarioId) {
       where.push('v.usuario_id = ?');
       params.push(usuarioId);
     } else {
@@ -455,9 +513,15 @@ router.get('/termos/:termoId/download', authenticateToken, async (req, res) => {
     }
 
     connection = await pool.getConnection();
+    const where = ['t.id = ?'];
+    const params = [termoId];
+    addInventoryVisibilityScope(req, where, params, 'v');
     const [rows] = await connection.query(
-      'SELECT file_path, file_name FROM inventario_termos WHERE id = ?',
-      [termoId]
+      `SELECT t.file_path, t.file_name
+         FROM inventario_termos t
+         JOIN inventario_vinculos v ON v.id = t.vinculo_id
+        WHERE ${where.join(' AND ')}`,
+      params
     );
 
     if (!rows.length) return res.status(404).json({ error: 'Termo nao encontrado' });
@@ -537,12 +601,19 @@ router.post('/importar-csv', authenticateToken, canManageInventory, csvUpload.si
         );
 
         if (mapped.vinculo) {
+          const [matchedUsers] = await connection.query(
+            'SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+            [mapped.vinculo.colaborador_nome]
+          );
+          const usuarioId = matchedUsers[0]?.id || null;
+
           await connection.query(
             `INSERT INTO inventario_vinculos
              (item_id, usuario_id, colaborador_nome, setor, data_entrega, status, observacoes, criado_por)
-             VALUES (?, NULL, ?, ?, ?, 'ativo', ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, 'ativo', ?, ?)`,
             [
               itemId,
+              usuarioId,
               mapped.vinculo.colaborador_nome,
               mapped.vinculo.setor,
               mapped.vinculo.data_entrega,
@@ -591,32 +662,42 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const itemId = assertValidItemId(req.params.id);
     connection = await pool.getConnection();
     const item = await fetchItemById(connection, itemId);
+    if (item && !canViewInventoryItem(req, item)) {
+      return res.status(403).json({ error: 'Voce nao tem permissao para visualizar este item' });
+    }
     if (!item) return res.status(404).json({ error: 'Item não encontrado' });
 
-    const [historico] = await connection.query(
+    const [historico] = isInventoryManager(req) ? await connection.query(
       `SELECT m.*, u.name AS realizado_por_nome
          FROM inventario_movimentacoes m
          LEFT JOIN users u ON u.id = m.realizado_por
         WHERE m.item_id = ?
         ORDER BY m.criado_em DESC, m.id DESC`,
       [itemId]
-    );
+    ) : [[]];
+    const vinculoWhere = ['v.item_id = ?'];
+    const vinculoParams = [itemId];
+    addInventoryVisibilityScope(req, vinculoWhere, vinculoParams, 'v');
     const [vinculos] = await connection.query(
       `SELECT v.*, u.name AS usuario_nome, c.name AS criado_por_nome
          FROM inventario_vinculos v
          LEFT JOIN users u ON u.id = v.usuario_id
          LEFT JOIN users c ON c.id = v.criado_por
-        WHERE v.item_id = ?
+        WHERE ${vinculoWhere.join(' AND ')}
         ORDER BY v.criado_em DESC, v.id DESC`,
-      [itemId]
+      vinculoParams
     );
+    const termoWhere = ['t.item_id = ?'];
+    const termoParams = [itemId];
+    addInventoryVisibilityScope(req, termoWhere, termoParams, 'v');
     const [termos] = await connection.query(
       `SELECT t.*, u.name AS uploaded_by_nome
          FROM inventario_termos t
+         JOIN inventario_vinculos v ON v.id = t.vinculo_id
          LEFT JOIN users u ON u.id = t.uploaded_by
-        WHERE t.item_id = ?
+        WHERE ${termoWhere.join(' AND ')}
         ORDER BY t.created_at DESC, t.id DESC`,
-      [itemId]
+      termoParams
     );
 
     res.json({ item, historico, vinculos, termos: termos.map(mapTerm) });
@@ -680,13 +761,17 @@ router.get('/:id/termos', authenticateToken, async (req, res) => {
   try {
     const itemId = assertValidItemId(req.params.id);
     connection = await pool.getConnection();
+    const termoWhere = ['t.item_id = ?'];
+    const termoParams = [itemId];
+    addInventoryVisibilityScope(req, termoWhere, termoParams, 'v');
     const [termos] = await connection.query(
       `SELECT t.*, u.name AS uploaded_by_nome
          FROM inventario_termos t
+         JOIN inventario_vinculos v ON v.id = t.vinculo_id
          LEFT JOIN users u ON u.id = t.uploaded_by
-        WHERE t.item_id = ?
+        WHERE ${termoWhere.join(' AND ')}
         ORDER BY t.created_at DESC, t.id DESC`,
-      [itemId]
+      termoParams
     );
     res.json(termos.map(mapTerm));
   } catch (error) {
@@ -801,7 +886,7 @@ router.post('/:id/vincular', authenticateToken, canManageInventory, vinculoValid
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const usuarioId = req.body.usuario_id ? Number(req.body.usuario_id) : null;
+    let usuarioId = req.body.usuario_id ? Number(req.body.usuario_id) : null;
     const colaboradorNome = normalizeString(req.body.colaborador_nome, 150);
     const setor = normalizeString(req.body.setor, 150);
     const dataEntrega = toDateOrToday(req.body.data_entrega);
@@ -810,6 +895,14 @@ router.post('/:id/vincular', authenticateToken, canManageInventory, vinculoValid
 
     connection = await pool.getConnection();
     await connection.beginTransaction();
+
+    if (!usuarioId && colaboradorNome) {
+      const [matchedUsers] = await connection.query(
+        'SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+        [colaboradorNome]
+      );
+      usuarioId = matchedUsers[0]?.id || null;
+    }
 
     const item = await fetchItemById(connection, itemId);
     if (!item) {
@@ -950,6 +1043,7 @@ router.get('/:id/historico', authenticateToken, async (req, res) => {
   let connection;
   try {
     const itemId = assertValidItemId(req.params.id);
+    if (!isInventoryManager(req)) return res.json([]);
     connection = await pool.getConnection();
     const [historico] = await connection.query(
       `SELECT m.*, u.name AS realizado_por_nome

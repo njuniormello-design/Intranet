@@ -511,7 +511,7 @@ em_uso, estoque, manutencao, baixado, emprestado, reservado, extraviado.
 
 Permissão:
 
-Todos os usuários autenticados podem acessar, listar e visualizar o Inventário TI. Apenas `admin` e `creator` podem cadastrar, editar, vincular, devolver, excluir itens, importar CSV e anexar termo assinado.
+Todos os usuários autenticados podem acessar o Inventário TI, mas usuários sem perfil `admin` ou `creator` visualizam somente os itens vinculados ao próprio usuário/nome. Apenas `admin` e `creator` podem visualizar todo o inventário, cadastrar, editar, vincular, devolver, excluir itens, importar CSV e anexar termo assinado.
 
 Rotas principais:
 

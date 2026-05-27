@@ -2412,7 +2412,7 @@ function getInventarioFilters() {
 async function loadInventario() {
   const tableBody = document.getElementById('inventarioTableBody');
   if (!tableBody) return;
-  tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">Carregando...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Carregando...</td></tr>';
 
   const params = new URLSearchParams();
   const filters = getInventarioFilters();
