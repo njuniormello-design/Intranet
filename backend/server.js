@@ -131,30 +131,36 @@ async function ensureDatabaseUpdates() {
       )
     `);
 
-    await connection.query(`
-      INSERT IGNORE INTO user_module_permissions (user_id, module_key)
-      SELECT u.id, modules.module_key
-        FROM users u
-        JOIN (
-          SELECT 'chamados_ti' AS module_key
-          UNION SELECT 'infraestrutura'
-          UNION SELECT 'inventario'
-          UNION SELECT 'funcionarios'
-          UNION SELECT 'usuarios'
-          UNION SELECT 'documentos'
-          UNION SELECT 'comunicados'
-          UNION SELECT 'ideias'
-          UNION SELECT 'frota'
-        ) modules
-       WHERE u.role = 'admin'
-    `);
+    const [[modulePermissionCount]] = await connection.query(
+      'SELECT COUNT(*) AS total FROM user_module_permissions'
+    );
 
-    await connection.query(`
-      INSERT IGNORE INTO user_module_permissions (user_id, module_key)
-      SELECT id, 'chamados_ti'
-        FROM users
-       WHERE role = 'creator'
-    `);
+    if (Number(modulePermissionCount.total) === 0) {
+      await connection.query(`
+        INSERT IGNORE INTO user_module_permissions (user_id, module_key)
+        SELECT u.id, modules.module_key
+          FROM users u
+          JOIN (
+            SELECT 'chamados_ti' AS module_key
+            UNION SELECT 'infraestrutura'
+            UNION SELECT 'inventario'
+            UNION SELECT 'funcionarios'
+            UNION SELECT 'usuarios'
+            UNION SELECT 'documentos'
+            UNION SELECT 'comunicados'
+            UNION SELECT 'ideias'
+            UNION SELECT 'frota'
+          ) modules
+         WHERE u.role = 'admin'
+      `);
+
+      await connection.query(`
+        INSERT IGNORE INTO user_module_permissions (user_id, module_key)
+        SELECT id, 'chamados_ti'
+          FROM users
+         WHERE role = 'creator'
+      `);
+    }
 
     const [announcementTypeColumn] = await connection.query(
       `SELECT COLUMN_NAME
