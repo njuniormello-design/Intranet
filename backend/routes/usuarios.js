@@ -95,7 +95,7 @@ router.post(
   authorizeRoles('admin'),
   [
     body('username').trim().isLength({ min: 3, max: 30 }).matches(/^[a-zA-Z0-9_.-]+$/).withMessage('Login deve ter entre 3 e 30 caracteres e usar apenas letras, numeros, ponto, underline ou hifen'),
-    body('password').isLength({ min: 6, max: 72 }).withMessage('Senha deve ter entre 6 e 72 caracteres'),
+    body('password').matches(/^[A-Za-z0-9]{6}$/).withMessage('Senha deve ter exatamente 6 numeros ou letras'),
     body('role').trim().isIn(['admin', 'creator', 'viewer']).withMessage('Perfil invalido'),
     body('email').optional().trim().isEmail().withMessage('Email invalido'),
     body('name').optional({ values: 'falsy' }).trim().isLength({ min: 2, max: 100 }).withMessage('Nome invalido'),
@@ -157,7 +157,7 @@ router.post(
 
 const updateUserValidators = [
   body('username').trim().isLength({ min: 3, max: 30 }).matches(/^[a-zA-Z0-9_.-]+$/).withMessage('Login deve ter entre 3 e 30 caracteres e usar apenas letras, numeros, ponto, underline ou hifen'),
-  body('password').optional({ values: 'falsy' }).isLength({ min: 6, max: 72 }).withMessage('Senha deve ter entre 6 e 72 caracteres'),
+  body('password').optional({ values: 'falsy' }).matches(/^[A-Za-z0-9]{6}$/).withMessage('Nova senha deve ter exatamente 6 numeros ou letras'),
   body('role').trim().isIn(['admin', 'creator', 'viewer']).withMessage('Perfil invalido'),
   body('email').optional({ values: 'falsy' }).trim().isEmail().withMessage('Email invalido'),
   body('name').optional({ values: 'falsy' }).trim().isLength({ min: 2, max: 100 }).withMessage('Nome invalido'),

@@ -101,7 +101,7 @@ const authorizeRoles = (...roles) => {
 router.post('/register', [
   body('username').trim().isLength({ min: 3, max: 30 }).withMessage('Usuario deve ter entre 3 e 30 caracteres'),
   body('email').trim().isEmail().withMessage('Email invalido'),
-  body('password').isLength({ min: 6 }).withMessage('Senha deve ter no minimo 6 caracteres'),
+  body('password').matches(/^[A-Za-z0-9]{6}$/).withMessage('Senha deve ter exatamente 6 numeros ou letras'),
   body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Nome deve ter entre 2 e 100 caracteres')
 ], async (req, res) => {
   const errors = validationResult(req);

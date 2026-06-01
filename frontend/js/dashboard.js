@@ -183,6 +183,24 @@ function isAdmin() {
   return getCurrentRole() === 'admin';
 }
 
+function focusFirstEditableField(containerOrId) {
+  const container = typeof containerOrId === 'string'
+    ? document.getElementById(containerOrId)
+    : containerOrId;
+
+  if (!container) return;
+
+  window.setTimeout(() => {
+    const field = container.querySelector(
+      'input:not([type="hidden"]):not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly])'
+    );
+
+    if (!field) return;
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    field.focus({ preventScroll: true });
+  }, 80);
+}
+
 function getFuncionariosTitle() {
   return isAdmin() ? 'Gerenciamento de Funcionários' : 'Relação de empregados e contatos';
 }
@@ -1188,6 +1206,11 @@ async function showChamadoDetails(chamadoId) {
     `;
 
     modal.style.display = 'flex';
+    if (isAdmin()) {
+      const editContainer = document.getElementById('editChamadoAssignedTo')?.closest('.form-row')?.parentElement
+        || document.getElementById('editChamadoPriority')?.closest('.form-row')?.parentElement;
+      focusFirstEditableField(editContainer || details);
+    }
   } catch (error) {
     console.error('Erro ao buscar detalhes:', error);
   }
@@ -1592,6 +1615,11 @@ async function showChamadoDetails(chamadoId) {
       editCategory.addEventListener('change', event => syncEditChamadoSubcategoryOptions(event.target.value));
     }
     modal.style.display = 'flex';
+    if (isAdmin()) {
+      const editContainer = document.getElementById('editChamadoAssignedTo')?.closest('.form-row')?.parentElement
+        || document.getElementById('editChamadoPriority')?.closest('.form-row')?.parentElement;
+      focusFirstEditableField(editContainer || details);
+    }
   } catch (error) {
     console.error('Erro ao buscar detalhes:', error);
     alert('Erro ao carregar detalhes do chamado: ' + error.message);
@@ -2175,6 +2203,11 @@ async function showInfraDetails(chamadoId) {
     const editCategory = document.getElementById('editInfraCategory');
     if (editCategory) editCategory.addEventListener('change', event => syncEditInfraSubcategoryOptions(event.target.value));
     modal.style.display = 'flex';
+    if (isAdmin()) {
+      const editContainer = document.getElementById('editInfraAssignedTo')?.closest('.form-row')?.parentElement
+        || document.getElementById('editInfraPriority')?.closest('.form-row')?.parentElement;
+      focusFirstEditableField(editContainer || details);
+    }
   } catch (error) {
     console.error('Erro ao buscar detalhes de infraestrutura:', error);
     alert('Erro ao carregar detalhes: ' + error.message);
@@ -2428,7 +2461,10 @@ function showInventarioForm(itemId = null) {
   const title = document.getElementById('inventarioFormTitle');
   if (title) title.textContent = editingInventarioItemId ? 'Editar item' : 'Cadastrar item';
   const form = document.getElementById('inventarioFormCard');
-  if (form) form.style.display = 'block';
+  if (form) {
+    form.style.display = 'block';
+    if (editingInventarioItemId) focusFirstEditableField(form);
+  }
 }
 
 function hideInventarioForm() {
@@ -3268,8 +3304,7 @@ function showEditComunicadoForm(comunicadoId) {
 
   const form = document.getElementById('newComunicadoForm');
   if (form) form.style.display = 'block';
-  const titleInput = document.getElementById('comunicadoTitle');
-  if (titleInput) titleInput.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  focusFirstEditableField(form);
 }
 
 async function deleteComunicado(comunicadoId) {
@@ -3582,7 +3617,7 @@ function showEditFuncionarioForm(funcionarioId) {
 
   const form = document.getElementById('newFuncionarioForm');
   if (form) form.style.display = 'block';
-  document.getElementById('funcNome')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  focusFirstEditableField(form);
 }
 
 const formNewFunc = document.getElementById('formNewFuncionario');
@@ -4070,11 +4105,11 @@ if (formNewUsuario) {
     if (!validateLength(username, 3, 30) || !/^[a-zA-Z0-9_.-]+$/.test(username)) {
       validationErrors.push('Login deve ter entre 3 e 30 caracteres e usar apenas letras, números, ponto, underline ou hífen');
     }
-    if (!editingUsuarioId && !validateLength(password, 6, 72)) {
-      validationErrors.push('Senha deve ter entre 6 e 72 caracteres');
+    if (!editingUsuarioId && !/^[A-Za-z0-9]{6}$/.test(password)) {
+      validationErrors.push('Senha deve ter exatamente 6 números ou letras');
     }
-    if (editingUsuarioId && password && !validateLength(password, 6, 72)) {
-      validationErrors.push('Nova senha deve ter entre 6 e 72 caracteres');
+    if (editingUsuarioId && password && !/^[A-Za-z0-9]{6}$/.test(password)) {
+      validationErrors.push('Nova senha deve ter exatamente 6 números ou letras');
     }
     if (name && !validateLength(name, 2, 100)) {
       validationErrors.push('Nome deve ter entre 2 e 100 caracteres');
@@ -4209,7 +4244,7 @@ function editUser(userId) {
 
   if (form) {
     form.style.display = 'block';
-    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    focusFirstEditableField(form);
   }
 }
 
