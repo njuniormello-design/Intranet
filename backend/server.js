@@ -131,6 +131,13 @@ async function ensureDatabaseUpdates() {
       )
     `);
 
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS system_migrations (
+        migration_key VARCHAR(100) PRIMARY KEY,
+        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     const [[modulePermissionCount]] = await connection.query(
       'SELECT COUNT(*) AS total FROM user_module_permissions'
     );
@@ -160,6 +167,33 @@ async function ensureDatabaseUpdates() {
           FROM users
          WHERE role = 'creator'
       `);
+    }
+
+    const [moduleDefaultsMigration] = await connection.query(
+      "SELECT migration_key FROM system_migrations WHERE migration_key = 'backfill_viewer_creator_module_permissions_20260601'"
+    );
+
+    if (!moduleDefaultsMigration.length) {
+      await connection.query(`
+        INSERT IGNORE INTO user_module_permissions (user_id, module_key)
+        SELECT u.id, modules.module_key
+          FROM users u
+          JOIN (
+            SELECT 'chamados_ti' AS module_key
+            UNION SELECT 'infraestrutura'
+            UNION SELECT 'inventario'
+            UNION SELECT 'funcionarios'
+            UNION SELECT 'documentos'
+            UNION SELECT 'comunicados'
+            UNION SELECT 'ideias'
+            UNION SELECT 'frota'
+          ) modules
+         WHERE u.role IN ('viewer', 'creator')
+      `);
+
+      await connection.query(
+        "INSERT INTO system_migrations (migration_key) VALUES ('backfill_viewer_creator_module_permissions_20260601')"
+      );
     }
 
     const [announcementTypeColumn] = await connection.query(

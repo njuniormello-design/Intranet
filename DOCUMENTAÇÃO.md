@@ -564,6 +564,8 @@ Uso principal:
 - técnicos de Infra recebem `Infraestrutura`;
 - quem atende as duas áreas recebe os dois módulos;
 - `Frota` já fica disponível para ativação futura.
+- por padrão, perfis `viewer` e `creator` recebem os módulos operacionais, exceto `Usuários`;
+- o módulo `Usuários` permanece exclusivo para perfis `admin`.
 
 Na seleção de técnico responsável, os chamados de TI listam somente usuários com perfil `admin` e módulo `Chamados de TI`. Os chamados de infraestrutura listam somente usuários com perfil `admin` e módulo `Infraestrutura`.
 

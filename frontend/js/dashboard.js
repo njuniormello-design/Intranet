@@ -85,8 +85,8 @@ const USER_MODULES = [
 
 const DEFAULT_MODULES_BY_ROLE = {
   admin: USER_MODULES.map(module => module.key),
-  creator: ['chamados_ti'],
-  viewer: []
+  creator: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota'],
+  viewer: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota']
 };
 
 const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'inventario', 'funcionarios', 'usuarios'];

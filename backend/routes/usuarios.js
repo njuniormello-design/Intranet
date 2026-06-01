@@ -7,8 +7,8 @@ const { authenticateToken, authorizeRoles, normalizeRole, normalizeModules } = r
 
 const DEFAULT_MODULES_BY_ROLE = {
   admin: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'usuarios', 'documentos', 'comunicados', 'ideias', 'frota'],
-  creator: ['chamados_ti'],
-  viewer: []
+  creator: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota'],
+  viewer: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota']
 };
 
 function getPayloadModules(body, role) {
