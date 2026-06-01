@@ -565,7 +565,7 @@ Uso principal:
 - quem atende as duas áreas recebe os dois módulos;
 - `Frota` já fica disponível para ativação futura.
 
-Na seleção de técnico responsável, os chamados de TI listam usuários com módulo `Chamados de TI`, e chamados de infraestrutura listam usuários com módulo `Infraestrutura`.
+Na seleção de técnico responsável, os chamados de TI listam somente usuários com perfil `admin` e módulo `Chamados de TI`. Os chamados de infraestrutura listam somente usuários com perfil `admin` e módulo `Infraestrutura`.
 
 ---
 

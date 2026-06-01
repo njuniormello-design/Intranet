@@ -155,6 +155,10 @@ function hasModule(moduleKey, user = currentUser) {
   return normalizeRole(user?.role) === 'admin' || getUserModules(user).includes(moduleKey);
 }
 
+function isAdminWithModule(moduleKey, user) {
+  return normalizeRole(user?.role) === 'admin' && getUserModules(user).includes(moduleKey);
+}
+
 function canAccessUsers() {
   return isAdmin();
 }
@@ -4511,7 +4515,7 @@ function syncEditInfraSubcategoryOptions(selectedCategory = '', selectedSubcateg
 
 function populateUsuariosSelects() {
   const buildOptions = moduleKey => usuariosCache
-    .filter(user => hasModule(moduleKey, user))
+    .filter(user => isAdminWithModule(moduleKey, user))
     .map(user => `<option value="${user.id}">${user.name || user.username}</option>`)
     .join('');
   const chamadosOptions = buildOptions('chamados_ti');
