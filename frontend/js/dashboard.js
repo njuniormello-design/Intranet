@@ -360,12 +360,31 @@ function getInfraFilterState() {
   };
 }
 
+const MAX_CHAMADOS_REPORT_RANGE_DAYS = 31;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function parseDateOnly(value) {
+  const parts = String(value || '').split('-').map(Number);
+  if (parts.length !== 3 || parts.some(part => !Number.isInteger(part))) return null;
+
+  const [year, month, day] = parts;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return date;
+}
+
+function getInclusiveDateRangeDays(start, end) {
+  return Math.round((end.getTime() - start.getTime()) / MS_PER_DAY) + 1;
+}
+
 function validateChamadosDateRange(from, to) {
   if (!from || !to) return true;
 
-  const start = new Date(`${from}T00:00:00`);
-  const end = new Date(`${to}T23:59:59.999`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+  const start = parseDateOnly(from);
+  const end = parseDateOnly(to);
+  if (!start || !end) {
     alert('Selecione datas válidas.');
     return false;
   }
@@ -375,9 +394,9 @@ function validateChamadosDateRange(from, to) {
     return false;
   }
 
-  const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  if (diffDays > 30) {
-    alert('O intervalo de datas deve ter no máximo 30 dias.');
+  const diffDays = getInclusiveDateRangeDays(start, end);
+  if (diffDays > MAX_CHAMADOS_REPORT_RANGE_DAYS) {
+    alert(`O intervalo de datas deve ter no máximo ${MAX_CHAMADOS_REPORT_RANGE_DAYS} dias.`);
     return false;
   }
 
