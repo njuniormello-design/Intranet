@@ -16,6 +16,24 @@ const normalizeRole = (role) => {
   return 'viewer';
 };
 
+const normalizeModules = (modules) => {
+  const allowed = new Set([
+    'chamados_ti',
+    'infraestrutura',
+    'inventario',
+    'funcionarios',
+    'usuarios',
+    'documentos',
+    'comunicados',
+    'ideias',
+    'frota'
+  ]);
+
+  return [...new Set((Array.isArray(modules) ? modules : [])
+    .map(module => String(module || '').trim().toLowerCase())
+    .filter(module => allowed.has(module)))];
+};
+
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -40,13 +58,23 @@ const authenticateToken = (req, res, next) => {
         'SELECT id, username, name, email, role FROM users WHERE id = ?',
         [user.id]
       );
-      connection.release();
-
       if (users.length === 0) {
+        connection.release();
         return res.status(401).json({ code: 'TOKEN_INVALID', error: 'Token inválido' });
       }
 
-      req.user = { ...user, ...users[0], role: normalizeRole(users[0].role) };
+      const [permissions] = await connection.query(
+        'SELECT module_key FROM user_module_permissions WHERE user_id = ? ORDER BY module_key',
+        [users[0].id]
+      );
+
+      req.user = {
+        ...user,
+        ...users[0],
+        role: normalizeRole(users[0].role),
+        modules: normalizeModules(permissions.map(permission => permission.module_key))
+      };
+      connection.release();
       return next();
     })().catch((lookupError) => {
       console.error(lookupError);
@@ -160,11 +188,21 @@ router.post('/login', [
       { expiresIn: process.env.JWT_EXPIRE }
     );
 
+    const [permissions] = await connection.query(
+      'SELECT module_key FROM user_module_permissions WHERE user_id = ? ORDER BY module_key',
+      [user.id]
+    );
     connection.release();
     res.json({
       message: 'Login realizado com sucesso',
       token,
-      user: { id: user.id, username: user.username, name: user.name, role: normalizeRole(user.role) }
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        role: normalizeRole(user.role),
+        modules: normalizeModules(permissions.map(permission => permission.module_key))
+      }
     });
   } catch (error) {
     console.error(error);
@@ -211,3 +249,4 @@ module.exports = router;
 module.exports.authenticateToken = authenticateToken;
 module.exports.authorizeRoles = authorizeRoles;
 module.exports.normalizeRole = normalizeRole;
+module.exports.normalizeModules = normalizeModules;

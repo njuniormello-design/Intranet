@@ -118,6 +118,44 @@ async function ensureDatabaseUpdates() {
       await connection.query('ALTER TABLE users ADD COLUMN birth_date DATE NULL AFTER role');
     }
 
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS user_module_permissions (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        module_key VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE KEY uniq_user_module_permission (user_id, module_key),
+        INDEX idx_user_module_permissions_user (user_id),
+        INDEX idx_user_module_permissions_module (module_key)
+      )
+    `);
+
+    await connection.query(`
+      INSERT IGNORE INTO user_module_permissions (user_id, module_key)
+      SELECT u.id, modules.module_key
+        FROM users u
+        JOIN (
+          SELECT 'chamados_ti' AS module_key
+          UNION SELECT 'infraestrutura'
+          UNION SELECT 'inventario'
+          UNION SELECT 'funcionarios'
+          UNION SELECT 'usuarios'
+          UNION SELECT 'documentos'
+          UNION SELECT 'comunicados'
+          UNION SELECT 'ideias'
+          UNION SELECT 'frota'
+        ) modules
+       WHERE u.role = 'admin'
+    `);
+
+    await connection.query(`
+      INSERT IGNORE INTO user_module_permissions (user_id, module_key)
+      SELECT id, 'chamados_ti'
+        FROM users
+       WHERE role = 'creator'
+    `);
+
     const [announcementTypeColumn] = await connection.query(
       `SELECT COLUMN_NAME
        FROM INFORMATION_SCHEMA.COLUMNS

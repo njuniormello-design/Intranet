@@ -19,6 +19,7 @@
 | 9 | **Interface Responsiva** | ✅ | Desktop e mobile |
 | 10 | **Documentação Completa** | ✅ | 6 arquivos de documentação |
 | 11 | **Inventário de TI** | ✅ | Dispositivos, patrimônio, vínculos e histórico |
+| 12 | **Permissões por módulo** | ✅ | Técnicos por área: TI, Infra, Inventário e Frota |
 
 ---
 
@@ -540,6 +541,32 @@ Depois de imprimir, assinar e digitalizar, abrir `Ver` no item vinculado e usar 
 Importação da planilha da TI:
 
 Na aba Inventário TI há o formulário `Importar planilha da TI`. A planilha deve ser exportada em CSV. O importador reconhece colunas como PC, IP, Colaborador, Usuário, Responsável, Setor, Tipo de computador, Marca, Modelo, Número de série, Patrimônio, Imobilizado, MAC, Monitores, Ramal, Antivírus, USB Lock, Senha ADM e Observações. Cada linha cria um item e, se houver colaborador, também cria o vínculo ativo.
+
+## Permissões por módulo
+
+O cadastro de usuários possui seleção de módulos de atuação. Isso separa o perfil geral (`admin`, `creator`, `viewer`) das áreas que o usuário atende.
+
+Módulos disponíveis:
+
+- Chamados de TI
+- Infraestrutura
+- Inventário TI
+- Funcionários
+- Usuários
+- Documentos
+- Comunicados
+- Ideias
+- Frota
+
+Uso principal:
+
+- técnicos de TI recebem `Chamados de TI`;
+- técnicos de Infra recebem `Infraestrutura`;
+- quem atende as duas áreas recebe os dois módulos;
+- `Frota` já fica disponível para ativação futura.
+
+Na seleção de técnico responsável, os chamados de TI listam usuários com módulo `Chamados de TI`, e chamados de infraestrutura listam usuários com módulo `Infraestrutura`.
+
 ---
 
 ## CONCLUSÃO

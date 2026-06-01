@@ -3,7 +3,29 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
 const { body, validationResult } = require('express-validator');
-const { authenticateToken, authorizeRoles, normalizeRole } = require('./auth');
+const { authenticateToken, authorizeRoles, normalizeRole, normalizeModules } = require('./auth');
+
+const DEFAULT_MODULES_BY_ROLE = {
+  admin: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'usuarios', 'documentos', 'comunicados', 'ideias', 'frota'],
+  creator: ['chamados_ti'],
+  viewer: []
+};
+
+function getPayloadModules(body, role) {
+  if (Array.isArray(body.modules)) return normalizeModules(body.modules);
+  return DEFAULT_MODULES_BY_ROLE[normalizeRole(role)] || [];
+}
+
+async function replaceUserModules(connection, userId, modules) {
+  await connection.query('DELETE FROM user_module_permissions WHERE user_id = ?', [userId]);
+  const normalized = normalizeModules(modules);
+  for (const moduleKey of normalized) {
+    await connection.query(
+      'INSERT IGNORE INTO user_module_permissions (user_id, module_key) VALUES (?, ?)',
+      [userId, moduleKey]
+    );
+  }
+}
 
 const buildGeneratedEmail = (username) => {
   const cleaned = String(username || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '.');
@@ -14,10 +36,18 @@ router.get('/list', authenticateToken, authorizeRoles('admin'), async (req, res)
   try {
     const connection = await pool.getConnection();
     const [users] = await connection.query(
-      'SELECT id, username, email, name, role, birth_date, created_at FROM users ORDER BY created_at DESC'
+      `SELECT u.id, u.username, u.email, u.name, u.role, u.birth_date, u.created_at,
+              GROUP_CONCAT(p.module_key ORDER BY p.module_key) AS modules_csv
+         FROM users u
+         LEFT JOIN user_module_permissions p ON p.user_id = u.id
+        GROUP BY u.id, u.username, u.email, u.name, u.role, u.birth_date, u.created_at
+        ORDER BY u.created_at DESC`
     );
     connection.release();
-    res.json(users);
+    res.json(users.map(user => ({
+      ...user,
+      modules: normalizeModules(user.modules_csv ? user.modules_csv.split(',') : [])
+    })));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao buscar usuarios' });
@@ -28,19 +58,23 @@ router.get('/search', authenticateToken, authorizeRoles('admin', 'creator'), asy
   let connection;
   try {
     const term = String(req.query.term || '').trim();
+    const moduleKey = normalizeModules([req.query.module])[0] || null;
     if (term.length < 2) {
       return res.status(400).json({ error: 'Digite pelo menos 2 caracteres para buscar usuario' });
     }
 
     const like = `%${term}%`;
+    const moduleJoin = moduleKey ? 'JOIN user_module_permissions p ON p.user_id = u.id AND p.module_key = ?' : '';
+    const params = moduleKey ? [moduleKey, like, like, like] : [like, like, like];
     connection = await pool.getConnection();
     const [users] = await connection.query(
-      `SELECT id, username, name, email, role
-         FROM users
-        WHERE username LIKE ? OR name LIKE ? OR email LIKE ?
-        ORDER BY name ASC, username ASC
+      `SELECT u.id, u.username, u.name, u.email, u.role
+         FROM users u
+         ${moduleJoin}
+        WHERE u.username LIKE ? OR u.name LIKE ? OR u.email LIKE ?
+        ORDER BY u.name ASC, u.username ASC
         LIMIT 10`,
-      [like, like, like]
+      params
     );
 
     res.json(users.map(user => ({
@@ -78,6 +112,7 @@ router.post(
       const password = String(req.body.password || '');
       const requestedRole = normalizeRole(req.body.role);
       const role = requestedRole;
+      const modules = getPayloadModules(req.body, role);
       const email = req.body.email ? String(req.body.email).trim().toLowerCase() : buildGeneratedEmail(username);
       const name = req.body.name ? String(req.body.name).trim() : username;
       const birthDate = req.body.birth_date ? String(req.body.birth_date).trim() : null;
@@ -105,10 +140,11 @@ router.post(
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      await connection.query(
+      const [created] = await connection.query(
         'INSERT INTO users (username, email, password, name, role, birth_date, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
         [username, email, hashedPassword, name, role, birthDate]
       );
+      await replaceUserModules(connection, created.insertId, modules);
 
       connection.release();
       res.status(201).json({ message: 'Usuario cadastrado com sucesso' });
@@ -147,6 +183,7 @@ async function updateUser(req, res) {
 
     const username = String(req.body.username || '').trim();
     const requestedRole = normalizeRole(req.body.role);
+    const modules = getPayloadModules(req.body, requestedRole);
     const name = req.body.name ? String(req.body.name).trim() : username;
     const birthDate = req.body.birth_date ? String(req.body.birth_date).trim() : null;
     const password = req.body.password ? String(req.body.password) : '';
@@ -199,6 +236,7 @@ async function updateUser(req, res) {
         [username, email, name, requestedRole, birthDate, userId]
       );
     }
+    await replaceUserModules(connection, userId, modules);
 
     connection.release();
     res.json({ message: 'Usuario atualizado com sucesso' });

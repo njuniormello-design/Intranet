@@ -71,6 +71,24 @@ const ROLE_LABELS = {
   user: 'Visualizador'
 };
 
+const USER_MODULES = [
+  { key: 'chamados_ti', label: 'Chamados de TI' },
+  { key: 'infraestrutura', label: 'Infraestrutura' },
+  { key: 'inventario', label: 'Inventário TI' },
+  { key: 'funcionarios', label: 'Funcionários' },
+  { key: 'usuarios', label: 'Usuários' },
+  { key: 'documentos', label: 'Documentos' },
+  { key: 'comunicados', label: 'Comunicados' },
+  { key: 'ideias', label: 'Ideias' },
+  { key: 'frota', label: 'Frota' }
+];
+
+const DEFAULT_MODULES_BY_ROLE = {
+  admin: USER_MODULES.map(module => module.key),
+  creator: ['chamados_ti'],
+  viewer: []
+};
+
 const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'inventario', 'funcionarios', 'usuarios'];
 const ALL_PAGES = ['dashboard', 'chamados', 'infraestrutura', 'inventario', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
 
@@ -129,6 +147,14 @@ function getCurrentRole() {
   return normalizeRole(currentUser.role);
 }
 
+function getUserModules(user = currentUser) {
+  return Array.isArray(user?.modules) ? user.modules : [];
+}
+
+function hasModule(moduleKey, user = currentUser) {
+  return normalizeRole(user?.role) === 'admin' || getUserModules(user).includes(moduleKey);
+}
+
 function canAccessUsers() {
   return isAdmin();
 }
@@ -138,15 +164,15 @@ function getAllowedUserRoles() {
 }
 
 function canManageCatalogs() {
-  return ['admin', 'creator'].includes(getCurrentRole());
+  return ['admin', 'creator'].includes(getCurrentRole()) && (hasModule('documentos') || hasModule('comunicados'));
 }
 
 function canManageFuncionarios() {
-  return ['admin', 'creator'].includes(getCurrentRole());
+  return ['admin', 'creator'].includes(getCurrentRole()) && hasModule('funcionarios');
 }
 
 function canManageInventario() {
-  return ['admin', 'creator'].includes(getCurrentRole());
+  return ['admin', 'creator'].includes(getCurrentRole()) && hasModule('inventario');
 }
 
 function isAdmin() {
@@ -530,6 +556,35 @@ if (!token) {
   window.location.href = 'index.html';
 } else if (isStoredTokenExpired(token)) {
   redirectToLogin('Sua sessão expirou. Faça login novamente.');
+}
+
+function getDefaultModulesForRole(role) {
+  return DEFAULT_MODULES_BY_ROLE[normalizeRole(role)] || [];
+}
+
+function renderUsuarioModuleOptions(selectedModules = []) {
+  const container = document.getElementById('usuarioModules');
+  if (!container) return;
+
+  const selected = new Set(selectedModules);
+  container.innerHTML = USER_MODULES.map(module => `
+    <label style="display:flex; align-items:center; gap:8px; margin:0;">
+      <input type="checkbox" name="modules" value="${module.key}" ${selected.has(module.key) ? 'checked' : ''}>
+      <span>${module.label}</span>
+    </label>
+  `).join('');
+}
+
+function getUsuarioSelectedModules() {
+  return [...document.querySelectorAll('#usuarioModules input[name="modules"]:checked')]
+    .map(input => input.value);
+}
+
+function getModuleLabels(modules = []) {
+  const labels = new Map(USER_MODULES.map(module => [module.key, module.label]));
+  return (Array.isArray(modules) ? modules : [])
+    .map(module => labels.get(module) || module)
+    .filter(Boolean);
 }
 
 // Carregar dados do usuário
@@ -3919,6 +3974,7 @@ function showNewUsuarioForm() {
     birthDateInput.max = new Date().toISOString().slice(0, 10);
   }
   syncUsuarioRoleOptions();
+  renderUsuarioModuleOptions(getDefaultModulesForRole(document.getElementById('usuarioPerfil')?.value));
   if (form) form.style.display = 'block';
 }
 
@@ -3929,6 +3985,7 @@ function hideUsuarioForm() {
   if (formEl) formEl.reset();
   editingUsuarioId = null;
   setUsuarioFormMode('create');
+  renderUsuarioModuleOptions([]);
 }
 
 function getUsuarioSearchText(usuario) {
@@ -3939,6 +3996,7 @@ function getUsuarioSearchText(usuario) {
     usuario?.name,
     usuario?.email,
     ROLE_LABELS[normalizeRole(usuario?.role)] || usuario?.role,
+    getModuleLabels(usuario?.modules).join(' '),
     formatDateToPtBr(usuario?.birth_date),
     usuario?.created_at ? new Date(usuario.created_at).toLocaleDateString('pt-BR') : ''
   ]
@@ -3951,7 +4009,7 @@ function renderUsuariosList(filterValue = '') {
   if (!tableBody) return;
 
   if (!canAccessUsers()) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
     return;
   }
 
@@ -3961,12 +4019,12 @@ function renderUsuariosList(filterValue = '') {
     : usuariosCache;
 
   if (usuariosCache.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
     return;
   }
 
   if (filteredUsuarios.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para a busca</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para a busca</td></tr>';
     return;
   }
 
@@ -3978,6 +4036,7 @@ function renderUsuariosList(filterValue = '') {
       <td>${escapeHtml(u.email || '-')}</td>
       <td>${formatDateToPtBr(u.birth_date)}</td>
       <td><span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">${escapeHtml(ROLE_LABELS[normalizeRole(u.role)] || u.role)}</span></td>
+      <td>${escapeHtml(getModuleLabels(u.modules).join(', ') || '-')}</td>
       <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
       <td>
         ${getCurrentRole() === 'admin' && Number(u.id) !== Number(currentUser.id) ? `<button onclick="editUser(${u.id})" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">Editar</button><button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">Excluir</button>` : '-'}
@@ -4035,7 +4094,8 @@ if (formNewUsuario) {
       name,
       username,
       role,
-      birth_date: birthDate || null
+      birth_date: birthDate || null,
+      modules: getUsuarioSelectedModules()
     };
     if (email) {
       payload.email = email;
@@ -4077,16 +4137,22 @@ document.getElementById('usuarioSearch')?.addEventListener('input', (event) => {
   renderUsuariosList(event.target.value);
 });
 
+document.getElementById('usuarioPerfil')?.addEventListener('change', (event) => {
+  if (!editingUsuarioId) {
+    renderUsuarioModuleOptions(getDefaultModulesForRole(event.target.value));
+  }
+});
+
 async function loadUsuarios() {
   const tableBody = document.getElementById('usuariosTableBody');
   if (!tableBody) return;
 
   if (!canAccessUsers()) {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
     return;
   }
 
-  tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Carregando...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Carregando...</td></tr>';
 
   try {
     const response = await fetch(`${API_URL}/usuarios/list`, {
@@ -4103,7 +4169,7 @@ async function loadUsuarios() {
     renderUsuariosList(document.getElementById('usuarioSearch')?.value || '');
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
-    tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
   }
 }
 
@@ -4135,6 +4201,7 @@ function editUser(userId) {
   document.getElementById('usuarioEmail').value = user.email || '';
   document.getElementById('usuarioNascimento').value = user.birth_date ? String(user.birth_date).slice(0, 10) : '';
   document.getElementById('usuarioPerfil').value = normalizeRole(user.role);
+  renderUsuarioModuleOptions(user.modules || getDefaultModulesForRole(user.role));
 
   if (form) {
     form.style.display = 'block';
@@ -4443,29 +4510,31 @@ function syncEditInfraSubcategoryOptions(selectedCategory = '', selectedSubcateg
 }
 
 function populateUsuariosSelects() {
-  const userOptions = usuariosCache
-    .filter(user => normalizeRole(user.role) === 'admin')
+  const buildOptions = moduleKey => usuariosCache
+    .filter(user => hasModule(moduleKey, user))
     .map(user => `<option value="${user.id}">${user.name || user.username}</option>`)
     .join('');
+  const chamadosOptions = buildOptions('chamados_ti');
+  const infraOptions = buildOptions('infraestrutura');
 
   const chamadosAssignedTo = document.getElementById('chamadoAssignedTo');
   if (chamadosAssignedTo) {
-    chamadosAssignedTo.innerHTML = '<option value="">Definir depois</option>' + userOptions;
+    chamadosAssignedTo.innerHTML = '<option value="">Definir depois</option>' + chamadosOptions;
   }
 
   const chamadosFilterAssignedTo = document.getElementById('chamadoFilterAssignedTo');
   if (chamadosFilterAssignedTo) {
-    chamadosFilterAssignedTo.innerHTML = '<option value="">Todos</option>' + userOptions;
+    chamadosFilterAssignedTo.innerHTML = '<option value="">Todos</option>' + chamadosOptions;
   }
 
   const infraAssignedTo = document.getElementById('infraAssignedTo');
   if (infraAssignedTo) {
-    infraAssignedTo.innerHTML = '<option value="">Definir depois</option>' + userOptions;
+    infraAssignedTo.innerHTML = '<option value="">Definir depois</option>' + infraOptions;
   }
 
   const infraFilterAssignedTo = document.getElementById('infraFilterAssignedTo');
   if (infraFilterAssignedTo) {
-    infraFilterAssignedTo.innerHTML = '<option value="">Todos</option>' + userOptions;
+    infraFilterAssignedTo.innerHTML = '<option value="">Todos</option>' + infraOptions;
   }
 }
 
