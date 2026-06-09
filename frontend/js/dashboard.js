@@ -73,7 +73,7 @@ const ROLE_LABELS = {
 
 const USER_MODULES = [
   { key: 'chamados_ti', label: 'Chamados de TI' },
-  { key: 'infraestrutura', label: 'Infraestrutura' },
+  { key: 'infraestrutura', label: 'Infraestrutura Predial' },
   { key: 'inventario', label: 'Inventário TI' },
   { key: 'funcionarios', label: 'Funcionários' },
   { key: 'usuarios', label: 'Usuários' },
