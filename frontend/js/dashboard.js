@@ -877,7 +877,7 @@ function loadPage(page, evt) {
   const titles = {
     dashboard: 'Dashboard',
     chamados: 'Chamados de TI',
-    infraestrutura: 'Infraestrutura',
+    infraestrutura: 'Infraestrutura Predial',
     inventario: 'Inventário de TI',
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
