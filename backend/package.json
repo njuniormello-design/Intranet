@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "sla:preview": "node scripts/recalculate-sla-history.js",
+    "sla:apply": "node scripts/recalculate-sla-history.js --apply"
   },
   "keywords": ["intranet", "nodejs", "express"],
   "author": "",

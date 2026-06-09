@@ -1611,7 +1611,7 @@ async function showChamadoDetails(chamadoId) {
       <p><strong>Resolução:</strong> ${chamado.resolved_at ? new Date(chamado.resolved_at).toLocaleString('pt-BR') : '-'}</p>
       <p><strong>Encerramento:</strong> ${chamado.closed_at ? new Date(chamado.closed_at).toLocaleString('pt-BR') : '-'}</p>
       <p><strong>Tempo de atendimento:</strong> ${chamado.service_started_at ? formatDurationSeconds(getChamadoServiceSeconds(chamado)) : '-'}</p>
-      <p><strong>Tempo em espera:</strong> ${formatDurationSeconds((Number(chamado.waiting_user_seconds || 0) + Number(chamado.waiting_vendor_seconds || 0)))}</p>
+      <p><strong>Tempo em espera:</strong> ${formatDurationSeconds(getChamadoWaitingSeconds(chamado))}</p>
       <p><strong>Tempo de fechamento:</strong> ${chamado.resolved_at && chamado.closed_at ? formatDurationSeconds(getChamadoClosingSeconds(chamado)) : '-'}</p>
       <p><strong>Motivo de pausa:</strong> ${chamado.sla_pause_reason || '-'}</p>
       <p><strong>Ativos vinculados:</strong> ${[chamado.asset_tag, chamado.serial_number, chamado.hostname].filter(Boolean).join(' / ') || '-'}</p>
@@ -4393,7 +4393,8 @@ function secondsBetweenDates(startDate, endDate) {
 function getChamadoServiceSeconds(chamado) {
   if (!chamado?.service_started_at) return 0;
   const endDate = chamado.resolved_at || chamado.closed_at || new Date();
-  return secondsBetweenDates(chamado.service_started_at, endDate);
+  const elapsedSeconds = secondsBetweenDates(chamado.service_started_at, endDate);
+  return Math.max(0, elapsedSeconds - getChamadoPausedSeconds(chamado, endDate));
 }
 
 function getChamadoTotalSeconds(chamado) {
@@ -4402,8 +4403,40 @@ function getChamadoTotalSeconds(chamado) {
   return secondsBetweenDates(startDate, endDate);
 }
 
+function getChamadoActivePauseSeconds(chamado, endDate = new Date()) {
+  const pausedStatuses = [
+    'triagem',
+    'aguardando_usuario',
+    'aguardando_informacoes',
+    'aguardando_aprovacao',
+    'aguardando_orcamento',
+    'aguardando_fornecedor',
+    'pendente_material',
+    'pendente_agendamento',
+    'pausado'
+  ];
+  if (!chamado?.sla_paused_at || !pausedStatuses.includes(chamado.status)) return 0;
+  return secondsBetweenDates(chamado.sla_paused_at, endDate);
+}
+
+function getChamadoPausedSeconds(chamado, endDate = new Date()) {
+  return Number(chamado?.paused_seconds || 0) + getChamadoActivePauseSeconds(chamado, endDate);
+}
+
 function getChamadoWaitingSeconds(chamado) {
-  return Number(chamado?.waiting_user_seconds || 0) + Number(chamado?.waiting_vendor_seconds || 0);
+  const savedWaitingSeconds = Number(chamado?.waiting_user_seconds || 0)
+    + Number(chamado?.waiting_vendor_seconds || 0);
+  const isWaiting = [
+    'aguardando_usuario',
+    'aguardando_informacoes',
+    'aguardando_aprovacao',
+    'aguardando_orcamento',
+    'aguardando_fornecedor',
+    'pendente_material',
+    'pendente_agendamento',
+    'pausado'
+  ].includes(chamado?.status);
+  return savedWaitingSeconds + (isWaiting ? getChamadoActivePauseSeconds(chamado) : 0);
 }
 
 function getChamadoClosingSeconds(chamado) {
@@ -4435,6 +4468,9 @@ function getChamadoStatusLabel(status) {
 function getChamadoSlaLabel(chamado) {
   if (chamado?.sla_state === 'dentro_sla') return 'Dentro SLA';
   if (chamado?.sla_state === 'fora_sla') return 'Fora SLA';
+  if (['triagem', 'aguardando_usuario', 'aguardando_fornecedor', 'pausado'].includes(chamado?.status)) {
+    return 'SLA pausado';
+  }
   return 'Em andamento';
 }
 
@@ -4513,6 +4549,16 @@ function getInfraStatusLabel(status) {
 function getInfraSlaLabel(chamado) {
   if (chamado?.sla_state === 'dentro_sla') return 'Dentro SLA';
   if (chamado?.sla_state === 'fora_sla') return 'Fora SLA';
+  if ([
+    'aguardando_informacoes',
+    'aguardando_aprovacao',
+    'aguardando_orcamento',
+    'aguardando_fornecedor',
+    'pendente_material',
+    'pendente_agendamento'
+  ].includes(chamado?.status)) {
+    return 'SLA pausado';
+  }
   return 'Em andamento';
 }
 

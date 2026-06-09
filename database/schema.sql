@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS infra_chamados (
   resolved_at DATETIME NULL,
   opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   closed_at DATETIME NULL,
+  sla_paused_at DATETIME NULL,
   sla_pause_reason VARCHAR(500) NULL,
   environment VARCHAR(120) NULL,
   asset_identifier VARCHAR(120) NULL,

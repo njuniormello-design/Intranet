@@ -205,6 +205,29 @@ function getSlaFlag(referenceDate, dueDate) {
   return new Date(referenceDate).getTime() <= new Date(dueDate).getTime() ? 1 : 0;
 }
 
+function secondsBetween(startDate, endDate = new Date()) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
+  return Math.floor((end - start) / 1000);
+}
+
+function getTotalPausedSeconds(chamado, referenceDate = new Date()) {
+  const savedPause = Math.max(0, Number(chamado?.paused_seconds) || 0);
+  if (!chamado?.sla_paused_at || !SLA_PAUSED_STATUSES.includes(chamado.status)) {
+    return savedPause;
+  }
+  return savedPause + secondsBetween(chamado.sla_paused_at, referenceDate);
+}
+
+function getSlaFlagWithPause(referenceDate, dueDate, chamado = null) {
+  if (!referenceDate || !dueDate) return null;
+  const pausedSeconds = getTotalPausedSeconds(chamado, referenceDate);
+  const adjustedDueDate = new Date(new Date(dueDate).getTime() + pausedSeconds * 1000);
+  return getSlaFlag(referenceDate, adjustedDueDate);
+}
+
 function getFinalSlaState(chamado) {
   if (chamado.sla_resolution_met === 1) return 'dentro_sla';
   if (chamado.sla_resolution_met === 0) return 'fora_sla';
@@ -412,12 +435,43 @@ function getSuggestedPriority(req) {
   return requestedPriority;
 }
 
-function addStatusUpdates({ chamado, nextStatus, updateFields, updateValues, now, userId }) {
+function addStatusUpdates({ chamado, nextStatus, updateFields, updateValues, now, userId, pauseReason }) {
+  const wasPaused = SLA_PAUSED_STATUSES.includes(chamado.status);
+  const willPause = SLA_PAUSED_STATUSES.includes(nextStatus);
+  const statusChanged = chamado.status !== nextStatus;
+  const shouldCloseCurrentPause = wasPaused && (!willPause || statusChanged);
+  const pauseSeconds = shouldCloseCurrentPause ? secondsBetween(chamado.sla_paused_at, now) : 0;
+
+  if (pauseSeconds > 0) {
+    updateFields.push('paused_seconds = COALESCE(paused_seconds, 0) + ?');
+    updateValues.push(pauseSeconds);
+
+    if (['aguardando_informacoes', 'aguardando_aprovacao'].includes(chamado.status)) {
+      updateFields.push('waiting_user_seconds = COALESCE(waiting_user_seconds, 0) + ?');
+      updateValues.push(pauseSeconds);
+    } else {
+      updateFields.push('waiting_vendor_seconds = COALESCE(waiting_vendor_seconds, 0) + ?');
+      updateValues.push(pauseSeconds);
+    }
+  }
+
+  if (willPause) {
+    if (!chamado.sla_paused_at || statusChanged) {
+      updateFields.push('sla_paused_at = ?');
+      updateValues.push(toSqlDateTime(now));
+    }
+    updateFields.push('sla_pause_reason = ?');
+    updateValues.push(pauseReason || null);
+  } else if (wasPaused || chamado.sla_paused_at) {
+    updateFields.push('sla_paused_at = NULL');
+    updateFields.push('sla_pause_reason = NULL');
+  }
+
   if (!chamado.first_response_at && FIRST_RESPONSE_STATUSES.includes(nextStatus)) {
     updateFields.push('first_response_at = ?');
     updateValues.push(toSqlDateTime(now));
     updateFields.push('sla_first_response_met = ?');
-    updateValues.push(getSlaFlag(now, chamado.first_response_due_at));
+    updateValues.push(getSlaFlagWithPause(now, chamado.first_response_due_at, chamado));
   }
   if (!chamado.service_started_at && SERVICE_STARTED_STATUSES.includes(nextStatus)) {
     updateFields.push('service_started_at = ?');
@@ -429,7 +483,7 @@ function addStatusUpdates({ chamado, nextStatus, updateFields, updateValues, now
     updateFields.push('resolved_by = ?');
     updateValues.push(userId);
     updateFields.push('sla_resolution_met = ?');
-    updateValues.push(getSlaFlag(now, chamado.resolution_due_at));
+    updateValues.push(getSlaFlagWithPause(now, chamado.resolution_due_at, chamado));
   }
   if (RESOLVED_STATUSES.includes(nextStatus)) {
     updateFields.push("user_validation_status = 'pendente'");
@@ -441,7 +495,7 @@ function addStatusUpdates({ chamado, nextStatus, updateFields, updateValues, now
       updateFields.push('resolved_at = ?');
       updateValues.push(toSqlDateTime(now));
       updateFields.push('sla_resolution_met = ?');
-      updateValues.push(getSlaFlag(now, chamado.resolution_due_at));
+      updateValues.push(getSlaFlagWithPause(now, chamado.resolution_due_at, chamado));
     }
     updateFields.push('closed_at = ?');
     updateValues.push(toSqlDateTime(now));
@@ -829,7 +883,16 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) 
           return res.status(400).json({ error: `Para resolver o chamado, preencha: ${missing.join(', ')}` });
         }
       }
-      addStatusUpdates({ chamado, nextStatus, updateFields: updates, updateValues: params, now, userId: req.user.id });
+      const pauseReason = fields.sla_pause_reason || normalizeString(req.body.observation, 500);
+      addStatusUpdates({
+        chamado,
+        nextStatus,
+        updateFields: updates,
+        updateValues: params,
+        now,
+        userId: req.user.id,
+        pauseReason
+      });
     }
 
     const observation = normalizeString(req.body.observation, 500);

@@ -344,6 +344,7 @@ async function ensureDatabaseUpdates() {
         resolved_at DATETIME NULL,
         opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         closed_at DATETIME NULL,
+        sla_paused_at DATETIME NULL,
         sla_pause_reason VARCHAR(500) NULL,
         environment VARCHAR(120) NULL,
         asset_identifier VARCHAR(120) NULL,
@@ -392,6 +393,7 @@ async function ensureDatabaseUpdates() {
     `);
 
     await ensureColumn('infra_chamados', 'support_level', "VARCHAR(10) NOT NULL DEFAULT 'N1'");
+    await ensureColumn('infra_chamados', 'sla_paused_at', 'DATETIME NULL');
     await ensureColumn('infra_chamados', 'sla_pause_reason', 'VARCHAR(500) NULL');
     await ensureColumn('infra_chamados', 'waiting_user_seconds', 'INT NOT NULL DEFAULT 0');
     await ensureColumn('infra_chamados', 'waiting_vendor_seconds', 'INT NOT NULL DEFAULT 0');
@@ -401,6 +403,19 @@ async function ensureDatabaseUpdates() {
     await ensureColumn('infra_chamados', 'user_validated_at', 'DATETIME NULL');
     await ensureColumn('infra_chamados', 'recurrence_flag', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('infra_chamados', 'recurrence_type', 'VARCHAR(100) NULL');
+    await connection.query(`
+      UPDATE infra_chamados
+         SET sla_paused_at = updated_at
+       WHERE sla_paused_at IS NULL
+         AND status IN (
+           'aguardando_informacoes',
+           'aguardando_aprovacao',
+           'aguardando_orcamento',
+           'aguardando_fornecedor',
+           'pendente_material',
+           'pendente_agendamento'
+         )
+    `);
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS infra_attachments (

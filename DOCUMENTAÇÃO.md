@@ -491,6 +491,32 @@ aguardando_usuario
 aguardando_fornecedor
  Resolvido ficou de pausar o tempo e aguardar validação do user para depois fechar. Se o usuário não validar em 5 dias corridos, o backend fecha automaticamente o chamado.
 
+### Recálculo retroativo de SLA
+
+Depois de publicar uma correção nas regras de pausa, execute primeiro a prévia no servidor:
+
+```bash
+cd backend
+npm run sla:preview
+```
+
+Para conferir somente um módulo:
+
+```bash
+node scripts/recalculate-sla-history.js --module=ti
+node scripts/recalculate-sla-history.js --module=infra
+```
+
+Após conferir a prévia, aplique o recálculo:
+
+```bash
+npm run sla:apply
+```
+
+O comando reconstrói as pausas pelo histórico de status, recalcula os vencimentos e os indicadores
+de SLA e salva os valores anteriores na tabela `sla_recalculation_backup`. Cada execução aplicada
+informa um `run_id`, que identifica o backup correspondente.
+
 ## Inventário de TI
 
 O sistema possui módulo de Inventário de TI integrado ao dashboard da intranet.
