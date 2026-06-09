@@ -4550,6 +4550,7 @@ function getInfraSlaLabel(chamado) {
   if (chamado?.sla_state === 'dentro_sla') return 'Dentro SLA';
   if (chamado?.sla_state === 'fora_sla') return 'Fora SLA';
   if ([
+    'triagem',
     'aguardando_informacoes',
     'aguardando_aprovacao',
     'aguardando_orcamento',

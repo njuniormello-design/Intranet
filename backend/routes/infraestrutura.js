@@ -51,6 +51,7 @@ const RESOLVED_STATUSES = ['resolvido'];
 const FIRST_RESPONSE_STATUSES = ['triagem', 'em_atendimento', 'resolvido', 'finalizado'];
 const SERVICE_STARTED_STATUSES = ['em_atendimento', 'resolvido', 'finalizado'];
 const SLA_PAUSED_STATUSES = ['aguardando_informacoes', 'aguardando_aprovacao', 'aguardando_orcamento', 'aguardando_fornecedor', 'pendente_material', 'pendente_agendamento'];
+const SLA_STOPPED_STATUSES = ['triagem', ...SLA_PAUSED_STATUSES];
 const PRIORITY_ORDER = ['critica', 'alta', 'media', 'baixa'];
 const BUSINESS_START_HOUR = 8;
 const BUSINESS_END_HOUR = 18;
@@ -215,7 +216,7 @@ function secondsBetween(startDate, endDate = new Date()) {
 
 function getTotalPausedSeconds(chamado, referenceDate = new Date()) {
   const savedPause = Math.max(0, Number(chamado?.paused_seconds) || 0);
-  if (!chamado?.sla_paused_at || !SLA_PAUSED_STATUSES.includes(chamado.status)) {
+  if (!chamado?.sla_paused_at || !SLA_STOPPED_STATUSES.includes(chamado.status)) {
     return savedPause;
   }
   return savedPause + secondsBetween(chamado.sla_paused_at, referenceDate);
@@ -436,8 +437,8 @@ function getSuggestedPriority(req) {
 }
 
 function addStatusUpdates({ chamado, nextStatus, updateFields, updateValues, now, userId, pauseReason }) {
-  const wasPaused = SLA_PAUSED_STATUSES.includes(chamado.status);
-  const willPause = SLA_PAUSED_STATUSES.includes(nextStatus);
+  const wasPaused = SLA_STOPPED_STATUSES.includes(chamado.status);
+  const willPause = SLA_STOPPED_STATUSES.includes(nextStatus);
   const statusChanged = chamado.status !== nextStatus;
   const shouldCloseCurrentPause = wasPaused && (!willPause || statusChanged);
   const pauseSeconds = shouldCloseCurrentPause ? secondsBetween(chamado.sla_paused_at, now) : 0;
@@ -449,7 +450,7 @@ function addStatusUpdates({ chamado, nextStatus, updateFields, updateValues, now
     if (['aguardando_informacoes', 'aguardando_aprovacao'].includes(chamado.status)) {
       updateFields.push('waiting_user_seconds = COALESCE(waiting_user_seconds, 0) + ?');
       updateValues.push(pauseSeconds);
-    } else {
+    } else if (SLA_PAUSED_STATUSES.includes(chamado.status)) {
       updateFields.push('waiting_vendor_seconds = COALESCE(waiting_vendor_seconds, 0) + ?');
       updateValues.push(pauseSeconds);
     }

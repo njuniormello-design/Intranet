@@ -408,6 +408,7 @@ async function ensureDatabaseUpdates() {
          SET sla_paused_at = updated_at
        WHERE sla_paused_at IS NULL
          AND status IN (
+           'triagem',
            'aguardando_informacoes',
            'aguardando_aprovacao',
            'aguardando_orcamento',

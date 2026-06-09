@@ -35,6 +35,7 @@ const MODULES = {
       baixa: { firstResponseMinutes: 1200, resolutionMinutes: 3000 }
     },
     pausedStatuses: new Set([
+      'triagem',
       'aguardando_informacoes',
       'aguardando_aprovacao',
       'aguardando_orcamento',
