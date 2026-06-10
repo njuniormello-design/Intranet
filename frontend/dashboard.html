@@ -1425,6 +1425,11 @@
                 <label>Acessos por módulo:</label>
                 <div id="usuarioModules" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 14px; margin-top: 8px;"></div>
               </div>
+              <div class="form-group" id="usuarioAssignmentModulesGroup">
+                <label>Pode ser responsável por:</label>
+                <small style="display:block; margin-top:4px;">Esta seleção controla somente os combos de responsáveis. O acesso para abrir chamados continua acima.</small>
+                <div id="usuarioAssignmentModules" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 14px; margin-top: 8px;"></div>
+              </div>
               <div style="text-align: right; margin-top: 15px;">
                 <button type="button" onclick="hideUsuarioForm()" class="btn btn-secondary" style="margin-right: 10px;">Cancelar</button>
                 <button type="submit" class="btn btn-primary">Cadastrar</button>
@@ -1449,6 +1454,7 @@
                     <th>Nascimento</th>
                     <th>Perfil</th>
                     <th>Módulos</th>
+                    <th>Responsável por</th>
                     <th>Cadastro</th>
                     <th>Ações</th>
                   </tr>
@@ -1552,7 +1558,7 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260610-frota-menu-align"></script>
+  <script src="js/dashboard.js?v=20260610-assignment-permissions"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {

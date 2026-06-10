@@ -66,6 +66,24 @@ async function main() {
   );
 
   run(
+    'Permissoes separadas de responsaveis no banco local',
+    process.execPath,
+    [
+      '-e',
+      `const pool=require('./config/database');
+       (async()=>{
+         const [tables]=await pool.query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_assignment_permissions'");
+         if(!tables.length){ console.error('Tabela user_assignment_permissions ausente'); process.exit(1); }
+         const [indexes]=await pool.query("SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_assignment_permissions' AND INDEX_NAME='uniq_user_assignment_permission'");
+         if(!indexes.length){ console.error('Indice unico de responsaveis ausente'); process.exit(1); }
+         console.log('user_assignment_permissions pronta');
+         await pool.end();
+       })().catch(error=>{ console.error(error.message); process.exit(1); });`
+    ],
+    { cwd: path.join(rootDir, 'backend') }
+  );
+
+  run(
     'Colunas de validacao no banco local',
     process.execPath,
     [

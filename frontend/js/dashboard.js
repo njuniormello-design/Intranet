@@ -82,6 +82,9 @@ const USER_MODULES = [
   { key: 'ideias', label: 'Ideias' },
   { key: 'frota', label: 'Chamados de Frota' }
 ];
+const ASSIGNMENT_MODULES = USER_MODULES.filter(module =>
+  ['chamados_ti', 'infraestrutura', 'frota'].includes(module.key)
+);
 
 const DEFAULT_MODULES_BY_ROLE = {
   admin: USER_MODULES.map(module => module.key),
@@ -176,7 +179,9 @@ function hasModule(moduleKey, user = currentUser) {
 }
 
 function isAdminWithModule(moduleKey, user) {
-  return normalizeRole(user?.role) === 'admin';
+  return normalizeRole(user?.role) === 'admin'
+    && Array.isArray(user?.assignment_modules)
+    && user.assignment_modules.includes(moduleKey);
 }
 
 function canAccessUsers() {
@@ -2512,6 +2517,27 @@ function getFrotaStatusLabel(status) {
     reaberto: 'Reaberto'
   };
   return labels[status] || humanizeOptionLabel(status || '-');
+}
+
+function renderUsuarioAssignmentModuleOptions(selectedModules = []) {
+  const container = document.getElementById('usuarioAssignmentModules');
+  const group = document.getElementById('usuarioAssignmentModulesGroup');
+  if (!container || !group) return;
+
+  const isAdminRole = normalizeRole(document.getElementById('usuarioPerfil')?.value) === 'admin';
+  const selected = new Set(isAdminRole ? selectedModules : []);
+  group.style.display = isAdminRole ? '' : 'none';
+  container.innerHTML = ASSIGNMENT_MODULES.map(module => `
+    <label style="display:flex; align-items:center; gap:8px; margin:0;">
+      <input type="checkbox" name="assignment_modules" value="${module.key}" ${selected.has(module.key) ? 'checked' : ''}>
+      <span>${module.label}</span>
+    </label>
+  `).join('');
+}
+
+function getUsuarioSelectedAssignmentModules() {
+  return [...document.querySelectorAll('#usuarioAssignmentModules input[name="assignment_modules"]:checked')]
+    .map(input => input.value);
 }
 
 function getFrotaSlaLabel(chamado) {
@@ -4886,6 +4912,7 @@ function showNewUsuarioForm() {
   }
   syncUsuarioRoleOptions();
   renderUsuarioModuleOptions(getDefaultModulesForRole(document.getElementById('usuarioPerfil')?.value));
+  renderUsuarioAssignmentModuleOptions([]);
   if (form) form.style.display = 'block';
 }
 
@@ -4897,6 +4924,7 @@ function hideUsuarioForm() {
   editingUsuarioId = null;
   setUsuarioFormMode('create');
   renderUsuarioModuleOptions([]);
+  renderUsuarioAssignmentModuleOptions([]);
 }
 
 function getUsuarioSearchText(usuario) {
@@ -4908,6 +4936,7 @@ function getUsuarioSearchText(usuario) {
     usuario?.email,
     ROLE_LABELS[normalizeRole(usuario?.role)] || usuario?.role,
     getModuleLabels(usuario?.modules).join(' '),
+    getModuleLabels(usuario?.assignment_modules).join(' '),
     formatDateToPtBr(usuario?.birth_date),
     usuario?.created_at ? new Date(usuario.created_at).toLocaleDateString('pt-BR') : ''
   ]
@@ -4920,7 +4949,7 @@ function renderUsuariosList(filterValue = '') {
   if (!tableBody) return;
 
   if (!canAccessUsers()) {
-    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
     return;
   }
 
@@ -4930,12 +4959,12 @@ function renderUsuariosList(filterValue = '') {
     : usuariosCache;
 
   if (usuariosCache.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Nenhum usuário cadastrado</td></tr>';
     return;
   }
 
   if (filteredUsuarios.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para a busca</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para a busca</td></tr>';
     return;
   }
 
@@ -4948,6 +4977,7 @@ function renderUsuariosList(filterValue = '') {
       <td>${formatDateToPtBr(u.birth_date)}</td>
       <td><span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">${escapeHtml(ROLE_LABELS[normalizeRole(u.role)] || u.role)}</span></td>
       <td>${escapeHtml(getModuleLabels(u.modules).join(', ') || '-')}</td>
+      <td>${escapeHtml(getModuleLabels(u.assignment_modules).join(', ') || '-')}</td>
       <td>${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
       <td>
         ${getCurrentRole() === 'admin' && Number(u.id) !== Number(currentUser.id) ? `<button onclick="editUser(${u.id})" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">Editar</button><button onclick="deleteUser(${u.id})" class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">Excluir</button>` : '-'}
@@ -5006,7 +5036,8 @@ if (formNewUsuario) {
       username,
       role,
       birth_date: birthDate || null,
-      modules: getUsuarioSelectedModules()
+      modules: getUsuarioSelectedModules(),
+      assignment_modules: getUsuarioSelectedAssignmentModules()
     };
     if (email) {
       payload.email = email;
@@ -5052,6 +5083,7 @@ document.getElementById('usuarioPerfil')?.addEventListener('change', (event) => 
   if (!editingUsuarioId) {
     renderUsuarioModuleOptions(getDefaultModulesForRole(event.target.value));
   }
+  renderUsuarioAssignmentModuleOptions([]);
 });
 
 async function loadUsuarios() {
@@ -5059,11 +5091,11 @@ async function loadUsuarios() {
   if (!tableBody) return;
 
   if (!canAccessUsers()) {
-    tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Seu perfil não tem acesso a esta área</td></tr>';
     return;
   }
 
-  tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Carregando...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Carregando...</td></tr>';
 
   try {
     const response = await fetch(`${API_URL}/usuarios/list`, {
@@ -5080,7 +5112,7 @@ async function loadUsuarios() {
     renderUsuariosList(document.getElementById('usuarioSearch')?.value || '');
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
-    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 20px; color: red;">Erro ao carregar usuários: ${error.message}</td></tr>`;
   }
 }
 
@@ -5113,6 +5145,7 @@ function editUser(userId) {
   document.getElementById('usuarioNascimento').value = user.birth_date ? String(user.birth_date).slice(0, 10) : '';
   document.getElementById('usuarioPerfil').value = normalizeRole(user.role);
   renderUsuarioModuleOptions(user.modules || getDefaultModulesForRole(user.role));
+  renderUsuarioAssignmentModuleOptions(user.assignment_modules || []);
 
   if (form) {
     form.style.display = 'block';

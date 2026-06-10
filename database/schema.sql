@@ -16,6 +16,17 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS user_assignment_permissions (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  module_key VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_user_assignment_permission (user_id, module_key),
+  INDEX idx_user_assignment_permissions_user (user_id),
+  INDEX idx_user_assignment_permissions_module (module_key)
+);
+
 -- Tabela de chamados
 CREATE TABLE IF NOT EXISTS chamados (
   id INT PRIMARY KEY AUTO_INCREMENT,

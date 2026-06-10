@@ -10,10 +10,17 @@ const DEFAULT_MODULES_BY_ROLE = {
   creator: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota'],
   viewer: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota']
 };
+const ASSIGNMENT_MODULES = ['chamados_ti', 'infraestrutura', 'frota'];
 
 function getPayloadModules(body, role) {
   if (Array.isArray(body.modules)) return normalizeModules(body.modules);
   return DEFAULT_MODULES_BY_ROLE[normalizeRole(role)] || [];
+}
+
+function getPayloadAssignmentModules(body, role) {
+  if (normalizeRole(role) !== 'admin' || !Array.isArray(body.assignment_modules)) return [];
+  return normalizeModules(body.assignment_modules)
+    .filter(moduleKey => ASSIGNMENT_MODULES.includes(moduleKey));
 }
 
 async function replaceUserModules(connection, userId, modules) {
@@ -37,16 +44,21 @@ router.get('/list', authenticateToken, authorizeRoles('admin'), async (req, res)
     const connection = await pool.getConnection();
     const [users] = await connection.query(
       `SELECT u.id, u.username, u.email, u.name, u.role, u.birth_date, u.created_at,
-              GROUP_CONCAT(p.module_key ORDER BY p.module_key) AS modules_csv
+              (SELECT GROUP_CONCAT(p.module_key ORDER BY p.module_key)
+                 FROM user_module_permissions p
+                WHERE p.user_id = u.id) AS modules_csv,
+              (SELECT GROUP_CONCAT(a.module_key ORDER BY a.module_key)
+                 FROM user_assignment_permissions a
+                WHERE a.user_id = u.id) AS assignment_modules_csv
          FROM users u
-         LEFT JOIN user_module_permissions p ON p.user_id = u.id
-        GROUP BY u.id, u.username, u.email, u.name, u.role, u.birth_date, u.created_at
         ORDER BY u.created_at DESC`
     );
     connection.release();
     res.json(users.map(user => ({
       ...user,
-      modules: normalizeModules(user.modules_csv ? user.modules_csv.split(',') : [])
+      modules: normalizeModules(user.modules_csv ? user.modules_csv.split(',') : []),
+      assignment_modules: normalizeModules(user.assignment_modules_csv ? user.assignment_modules_csv.split(',') : [])
+        .filter(moduleKey => ASSIGNMENT_MODULES.includes(moduleKey))
     })));
   } catch (error) {
     console.error(error);
@@ -113,6 +125,7 @@ router.post(
       const requestedRole = normalizeRole(req.body.role);
       const role = requestedRole;
       const modules = getPayloadModules(req.body, role);
+      const assignmentModules = getPayloadAssignmentModules(req.body, role);
       const email = req.body.email ? String(req.body.email).trim().toLowerCase() : buildGeneratedEmail(username);
       const name = req.body.name ? String(req.body.name).trim() : username;
       const birthDate = req.body.birth_date ? String(req.body.birth_date).trim() : null;
@@ -145,6 +158,7 @@ router.post(
         [username, email, hashedPassword, name, role, birthDate]
       );
       await replaceUserModules(connection, created.insertId, modules);
+      await replaceUserAssignmentModules(connection, created.insertId, assignmentModules);
 
       connection.release();
       res.status(201).json({ message: 'Usuario cadastrado com sucesso' });
@@ -184,6 +198,7 @@ async function updateUser(req, res) {
     const username = String(req.body.username || '').trim();
     const requestedRole = normalizeRole(req.body.role);
     const modules = getPayloadModules(req.body, requestedRole);
+    const assignmentModules = getPayloadAssignmentModules(req.body, requestedRole);
     const name = req.body.name ? String(req.body.name).trim() : username;
     const birthDate = req.body.birth_date ? String(req.body.birth_date).trim() : null;
     const password = req.body.password ? String(req.body.password) : '';
@@ -237,12 +252,23 @@ async function updateUser(req, res) {
       );
     }
     await replaceUserModules(connection, userId, modules);
+    await replaceUserAssignmentModules(connection, userId, assignmentModules);
 
     connection.release();
     res.json({ message: 'Usuario atualizado com sucesso' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao atualizar usuario' });
+  }
+}
+
+async function replaceUserAssignmentModules(connection, userId, modules) {
+  await connection.query('DELETE FROM user_assignment_permissions WHERE user_id = ?', [userId]);
+  for (const moduleKey of modules) {
+    await connection.query(
+      'INSERT IGNORE INTO user_assignment_permissions (user_id, module_key) VALUES (?, ?)',
+      [userId, moduleKey]
+    );
   }
 }
 

@@ -210,6 +210,19 @@ async function ensureDatabaseUpdates() {
     `);
 
     await connection.query(`
+      CREATE TABLE IF NOT EXISTS user_assignment_permissions (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        module_key VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE KEY uniq_user_assignment_permission (user_id, module_key),
+        INDEX idx_user_assignment_permissions_user (user_id),
+        INDEX idx_user_assignment_permissions_module (module_key)
+      )
+    `);
+
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS system_migrations (
         migration_key VARCHAR(100) PRIMARY KEY,
         executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -287,6 +300,24 @@ async function ensureDatabaseUpdates() {
       `);
       await connection.query(
         "INSERT INTO system_migrations (migration_key) VALUES ('backfill_frota_module_permissions_20260610')"
+      );
+    }
+
+    const [assignmentPermissionMigration] = await connection.query(
+      "SELECT migration_key FROM system_migrations WHERE migration_key = 'split_assignment_permissions_20260610'"
+    );
+
+    if (!assignmentPermissionMigration.length) {
+      await connection.query(`
+        INSERT IGNORE INTO user_assignment_permissions (user_id, module_key)
+        SELECT p.user_id, p.module_key
+          FROM user_module_permissions p
+          JOIN users u ON u.id = p.user_id
+         WHERE u.role = 'admin'
+           AND p.module_key IN ('chamados_ti', 'infraestrutura', 'frota')
+      `);
+      await connection.query(
+        "INSERT INTO system_migrations (migration_key) VALUES ('split_assignment_permissions_20260610')"
       );
     }
 
