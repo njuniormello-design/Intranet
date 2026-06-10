@@ -2796,9 +2796,56 @@ async function loadFrotaVehicles() {
   const data = await readApiResponse(response);
   if (!response.ok) throw new Error(data?.error || 'Erro ao carregar veículos');
   frotaVehiclesCache = Array.isArray(data) ? data : [];
+  renderFrotaVehicles();
+}
+
+function getCadastroFrotaFilters() {
+  return {
+    search: normalizeSearchText(getFieldValue('frotaVehicleSearch')),
+    status: getFieldValue('frotaVehicleStatusFilter'),
+    department: normalizeSearchText(getFieldValue('frotaVehicleDepartmentFilter'))
+  };
+}
+
+function filtrarCadastroFrota() {
+  renderFrotaVehicles();
+}
+
+function limparFiltrosCadastroFrota() {
+  ['frotaVehicleSearch', 'frotaVehicleStatusFilter', 'frotaVehicleDepartmentFilter'].forEach(id => {
+    const field = document.getElementById(id);
+    if (field) field.value = '';
+  });
+  renderFrotaVehicles();
+}
+
+function renderFrotaVehicles() {
   const body = document.getElementById('frotaVehiclesTableBody');
   if (!body) return;
-  body.innerHTML = frotaVehiclesCache.length ? frotaVehiclesCache.map(vehicle => `
+
+  const filters = getCadastroFrotaFilters();
+  const vehicles = frotaVehiclesCache.filter(vehicle => {
+    const searchableValues = [
+      vehicle.placa,
+      vehicle.prefixo,
+      vehicle.marca,
+      vehicle.modelo,
+      vehicle.tipo_veiculo,
+      vehicle.categoria,
+      vehicle.renavam,
+      vehicle.chassi,
+      vehicle.motorista_responsavel,
+      vehicle.unidade,
+      vehicle.setor_responsavel
+    ].filter(Boolean).join(' ');
+    const department = normalizeSearchText(vehicle.setor_responsavel);
+
+    return (!filters.search || normalizeSearchText(searchableValues).includes(filters.search))
+      && (!filters.status || vehicle.status_operacional === filters.status)
+      && (!filters.department || department.includes(filters.department));
+  });
+
+  body.innerHTML = vehicles.length ? vehicles.map(vehicle => `
     <tr>
       <td>${escapeHtml(vehicle.placa)}</td>
       <td>${escapeHtml(vehicle.prefixo || '-')}</td>
@@ -2809,7 +2856,7 @@ async function loadFrotaVehicles() {
       <td>${escapeHtml(vehicle.setor_responsavel || '-')}</td>
       <td><button class="btn btn-primary" onclick="editFrotaVehicle(${vehicle.id})" style="padding:5px 10px;font-size:12px;">Editar</button></td>
     </tr>
-  `).join('') : '<tr><td colspan="8" style="text-align:center;">Nenhum veículo cadastrado.</td></tr>';
+  `).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;">Nenhum veículo encontrado.</td></tr>';
 }
 
 function editFrotaVehicle(id) {
@@ -5698,6 +5745,14 @@ async function loadFrotaMetadata() {
   if (vehicleStatus) {
     vehicleStatus.innerHTML = (frotaMetadata.vehicleStatuses || [])
       .map(value => `<option value="${value}">${humanizeOptionLabel(value)}</option>`).join('');
+  }
+  const vehicleStatusFilter = document.getElementById('frotaVehicleStatusFilter');
+  if (vehicleStatusFilter) {
+    const selectedStatus = vehicleStatusFilter.value;
+    vehicleStatusFilter.innerHTML = '<option value="">Todos os status</option>'
+      + (frotaMetadata.vehicleStatuses || [])
+        .map(value => `<option value="${value}">${humanizeOptionLabel(value)}</option>`).join('');
+    vehicleStatusFilter.value = selectedStatus;
   }
 }
 

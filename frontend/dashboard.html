@@ -1030,6 +1030,15 @@
 
             <div class="table-section">
               <h3>Veículos Cadastrados</h3>
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:15px;">
+                <input type="text" id="frotaVehicleSearch" placeholder="Buscar placa, prefixo, veículo, motorista...">
+                <select id="frotaVehicleStatusFilter">
+                  <option value="">Todos os status</option>
+                </select>
+                <input type="text" id="frotaVehicleDepartmentFilter" placeholder="Setor">
+                <button type="button" class="btn btn-primary" onclick="filtrarCadastroFrota()">Filtrar</button>
+                <button type="button" class="btn btn-secondary" onclick="limparFiltrosCadastroFrota()">Limpar</button>
+              </div>
               <table class="data-table">
                 <thead><tr><th>Placa</th><th>Prefixo</th><th>Veículo</th><th>Tipo</th><th>Status</th><th>KM</th><th>Setor</th><th>Ação</th></tr></thead>
                 <tbody id="frotaVehiclesTableBody"></tbody>
@@ -1573,7 +1582,7 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260610-fleet-pages"></script>
+  <script src="js/dashboard.js?v=20260610-fleet-search"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {
