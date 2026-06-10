@@ -16,6 +16,81 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// ================== ROTA DE TESTE BI ==================
+app.get('/api/bi/teste', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Rota BI funcionando'
+  });
+});
+
+// ================== DEBUG BANCO ==================
+app.get('/api/bi/debug-db', async (req, res) => {
+  try {
+    const [dbAtual] = await pool.query('SELECT DATABASE() AS banco_atual');
+    const [databases] = await pool.query('SHOW DATABASES');
+
+    res.json({
+      success: true,
+      env: {
+        DB_HOST: process.env.DB_HOST,
+        DB_PORT: process.env.DB_PORT,
+        DB_USER: process.env.DB_USER,
+        DB_NAME: process.env.DB_NAME
+      },
+      banco_atual: dbAtual[0],
+      databases: databases
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao consultar banco',
+      error: error.message,
+      env: {
+        DB_HOST: process.env.DB_HOST,
+        DB_PORT: process.env.DB_PORT,
+        DB_USER: process.env.DB_USER,
+        DB_NAME: process.env.DB_NAME
+      }
+    });
+  }
+});
+// ================== API BI - SLA CHAMADOS ==================
+app.get('/api/bi/sla-chamados', async (req, res) => {
+  try {
+    const token = req.query.token;
+
+    if (!process.env.BI_SLA_TOKEN || token !== process.env.BI_SLA_TOKEN) {
+      return res.status(401).json({
+        success: false,
+        message: 'Acesso não autorizado'
+      });
+    }
+
+    const dataInicio = req.query.data_inicio || '2025-01-01';
+    const dataFim = req.query.data_fim || new Date().toISOString().slice(0, 10);
+
+    const [rows] = await pool.query(`
+  SELECT *
+  FROM vw_bi_sla_chamados
+  WHERE DATE(created_at) BETWEEN ? AND ?
+  ORDER BY created_at DESC
+`, [dataInicio, dataFim]);
+
+    return res.status(200).json(rows);
+
+  } catch (error) {
+    console.error('Erro ao consultar dados de SLA para BI:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao consultar dados de SLA para BI',
+      error: error.message
+    });
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -28,6 +103,7 @@ app.use('/uploads', (req, res, next) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   next();
 }, express.static(uploadsPath));
+
 
 // Importar rotas
 const authRoutes = require('./routes/auth');
