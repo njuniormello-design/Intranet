@@ -39,6 +39,7 @@ const usuariosRoutes = require('./routes/usuarios');
 const ideiasRoutes = require('./routes/ideias');
 const infraestruturaRoutes = require('./routes/infraestrutura');
 const inventarioRoutes = require('./routes/inventario');
+const frotaRoutes = require('./routes/frota');
 
 // Usar rotas
 app.use('/api/auth', authRoutes);
@@ -50,6 +51,7 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/ideias', ideiasRoutes);
 app.use('/api/infraestrutura', infraestruturaRoutes);
 app.use('/api/inventario', inventarioRoutes);
+app.use('/api/frota', frotaRoutes);
 
 // Servir o frontend pelo mesmo servidor, sem impedir o uso do frontend separado
 app.use(express.static(frontendPath));
@@ -193,6 +195,22 @@ async function ensureDatabaseUpdates() {
 
       await connection.query(
         "INSERT INTO system_migrations (migration_key) VALUES ('backfill_viewer_creator_module_permissions_20260601')"
+      );
+    }
+
+    const [frotaPermissionMigration] = await connection.query(
+      "SELECT migration_key FROM system_migrations WHERE migration_key = 'backfill_frota_module_permissions_20260610'"
+    );
+
+    if (!frotaPermissionMigration.length) {
+      await connection.query(`
+        INSERT IGNORE INTO user_module_permissions (user_id, module_key)
+        SELECT id, 'frota'
+          FROM users
+         WHERE role IN ('admin', 'viewer', 'creator')
+      `);
+      await connection.query(
+        "INSERT INTO system_migrations (migration_key) VALUES ('backfill_frota_module_permissions_20260610')"
       );
     }
 
@@ -452,6 +470,180 @@ async function ensureDatabaseUpdates() {
     `);
 
     await connection.query(`
+      CREATE TABLE IF NOT EXISTS frota_veiculos (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        placa VARCHAR(10) NOT NULL UNIQUE,
+        prefixo VARCHAR(50) NULL,
+        marca VARCHAR(100) NOT NULL,
+        modelo VARCHAR(100) NOT NULL,
+        ano_fabricacao INT NULL,
+        ano_modelo INT NULL,
+        tipo_veiculo VARCHAR(100) NOT NULL,
+        categoria VARCHAR(100) NULL,
+        renavam VARCHAR(50) NULL,
+        chassi VARCHAR(100) NULL,
+        cor VARCHAR(50) NULL,
+        combustivel VARCHAR(50) NULL,
+        setor_responsavel VARCHAR(100) NULL,
+        motorista_responsavel VARCHAR(120) NULL,
+        unidade VARCHAR(100) NULL,
+        status_operacional VARCHAR(50) NOT NULL DEFAULT 'disponivel',
+        quilometragem_atual INT NOT NULL DEFAULT 0,
+        data_ultima_revisao DATE NULL,
+        km_ultima_revisao INT NULL,
+        data_proxima_revisao DATE NULL,
+        km_proxima_revisao INT NULL,
+        vencimento_licenciamento DATE NULL,
+        vencimento_seguro DATE NULL,
+        vencimento_extintor DATE NULL,
+        observacoes TEXT NULL,
+        ativo TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_frota_veiculos_status (status_operacional),
+        INDEX idx_frota_veiculos_ativo (ativo)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS frota_chamados (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        ticket_number VARCHAR(30) UNIQUE NULL,
+        requester_name VARCHAR(100) NULL,
+        department VARCHAR(100) NOT NULL,
+        unit_name VARCHAR(100) NOT NULL,
+        title VARCHAR(150) NOT NULL,
+        description TEXT NOT NULL,
+        vehicle_id INT NOT NULL,
+        request_type VARCHAR(100) NOT NULL,
+        priority VARCHAR(20) NOT NULL DEFAULT 'media',
+        status VARCHAR(50) NOT NULL DEFAULT 'aberto',
+        assigned_to INT NULL,
+        resolved_by INT NULL,
+        current_mileage INT NOT NULL DEFAULT 0,
+        driver_name VARCHAR(120) NULL,
+        vehicle_location VARCHAR(255) NULL,
+        vehicle_in_operation TINYINT(1) NOT NULL DEFAULT 1,
+        safety_risk TINYINT(1) NOT NULL DEFAULT 0,
+        needs_tow TINYINT(1) NOT NULL DEFAULT 0,
+        activity_interrupted TINYINT(1) NOT NULL DEFAULT 0,
+        vehicle_unavailable TINYINT(1) NOT NULL DEFAULT 0,
+        supplier_name VARCHAR(120) NULL,
+        supplier_contacted_at DATETIME NULL,
+        expected_return_at DATETIME NULL,
+        estimated_cost DECIMAL(12,2) NULL,
+        approved_cost DECIMAL(12,2) NULL,
+        actual_cost DECIMAL(12,2) NULL,
+        quote_number VARCHAR(80) NULL,
+        invoice_number VARCHAR(80) NULL,
+        diagnosis TEXT NULL,
+        action_taken TEXT NULL,
+        parts_used TEXT NULL,
+        service_performed TEXT NULL,
+        solution TEXT NULL,
+        internal_notes TEXT NULL,
+        return_date DATETIME NULL,
+        opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        first_response_due_at DATETIME NULL,
+        first_response_at DATETIME NULL,
+        service_started_at DATETIME NULL,
+        resolution_due_at DATETIME NULL,
+        resolved_at DATETIME NULL,
+        closed_at DATETIME NULL,
+        sla_paused_at DATETIME NULL,
+        sla_pause_reason VARCHAR(500) NULL,
+        paused_seconds INT NOT NULL DEFAULT 0,
+        sla_first_response_met TINYINT(1) NULL,
+        sla_resolution_met TINYINT(1) NULL,
+        final_status VARCHAR(50) NULL,
+        user_validation_status VARCHAR(30) NOT NULL DEFAULT 'nao_enviado',
+        user_validation_comment VARCHAR(500) NULL,
+        user_validated_at DATETIME NULL,
+        reopen_count INT NOT NULL DEFAULT 0,
+        last_reopen_reason VARCHAR(500) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (vehicle_id) REFERENCES frota_veiculos(id),
+        FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_frota_chamados_user (user_id),
+        INDEX idx_frota_chamados_status (status),
+        INDEX idx_frota_chamados_vehicle (vehicle_id),
+        INDEX idx_frota_chamados_opened (opened_at),
+        INDEX idx_frota_chamados_assigned (assigned_to)
+      )
+    `);
+
+    await ensureColumn('frota_chamados', 'user_validation_status', "VARCHAR(30) NOT NULL DEFAULT 'nao_enviado'");
+    await ensureColumn('frota_chamados', 'user_validation_comment', 'VARCHAR(500) NULL');
+    await ensureColumn('frota_chamados', 'user_validated_at', 'DATETIME NULL');
+    await ensureColumn('frota_chamados', 'reopen_count', 'INT NOT NULL DEFAULT 0');
+    await ensureColumn('frota_chamados', 'last_reopen_reason', 'VARCHAR(500) NULL');
+    await ensureIndex('frota_chamados', 'idx_frota_chamados_user', '(user_id)');
+    await connection.query(`
+      UPDATE frota_chamados
+         SET user_validation_status = 'pendente'
+       WHERE status = 'resolvido'
+         AND user_validation_status = 'nao_enviado'
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS frota_attachments (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        chamado_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_type VARCHAR(100) NULL,
+        file_size INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (chamado_id) REFERENCES frota_chamados(id) ON DELETE CASCADE,
+        INDEX idx_frota_attachments_chamado (chamado_id)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS frota_historico (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        chamado_id INT NOT NULL,
+        changed_by INT NULL,
+        action_type VARCHAR(50) NOT NULL,
+        field_name VARCHAR(100) NULL,
+        old_value TEXT NULL,
+        new_value TEXT NULL,
+        from_status VARCHAR(50) NULL,
+        to_status VARCHAR(50) NULL,
+        observation VARCHAR(500) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (chamado_id) REFERENCES frota_chamados(id) ON DELETE CASCADE,
+        FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_frota_historico_chamado (chamado_id),
+        INDEX idx_frota_historico_created (created_at)
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS frota_indisponibilidades (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        vehicle_id INT NOT NULL,
+        chamado_id INT NULL,
+        data_inicio DATETIME NOT NULL,
+        data_fim DATETIME NULL,
+        motivo TEXT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'aberta',
+        responsavel INT NULL,
+        observacao TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (vehicle_id) REFERENCES frota_veiculos(id),
+        FOREIGN KEY (chamado_id) REFERENCES frota_chamados(id) ON DELETE SET NULL,
+        FOREIGN KEY (responsavel) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_frota_indisponibilidade_vehicle (vehicle_id),
+        INDEX idx_frota_indisponibilidade_open (data_fim)
+      )
+    `);
+
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS inventario_itens (
         id INT PRIMARY KEY AUTO_INCREMENT,
         tipo VARCHAR(100) NOT NULL,
@@ -551,12 +743,20 @@ async function closeExpiredUserValidationChamados() {
     {
       tableName: 'chamados',
       historyTableName: 'chamado_historico',
-      logName: 'chamado(s) de TI'
+      logName: 'chamado(s) de TI',
+      closedStatus: 'fechado'
     },
     {
       tableName: 'infra_chamados',
       historyTableName: 'infra_historico',
-      logName: 'chamado(s) de infraestrutura'
+      logName: 'chamado(s) de infraestrutura',
+      closedStatus: 'fechado'
+    },
+    {
+      tableName: 'frota_chamados',
+      historyTableName: 'frota_historico',
+      logName: 'chamado(s) de frota',
+      closedStatus: 'finalizado'
     }
   ];
 
@@ -578,8 +778,8 @@ async function closeExpiredUserValidationChamados() {
       for (const chamado of expiredChamados) {
         await connection.query(
           `UPDATE ${target.tableName}
-              SET status = 'fechado',
-                  final_status = 'fechado',
+              SET status = '${target.closedStatus}',
+                  final_status = '${target.closedStatus}',
                   closed_at = NOW(),
                   user_validation_status = 'expirado',
                   user_validation_comment = ?,
@@ -593,7 +793,7 @@ async function closeExpiredUserValidationChamados() {
         await connection.query(
           `INSERT INTO ${target.historyTableName}
            (chamado_id, changed_by, action_type, from_status, to_status, observation, created_at)
-           VALUES (?, NULL, 'fechamento_automatico', ?, 'fechado', ?, NOW())`,
+           VALUES (?, NULL, 'fechamento_automatico', ?, '${target.closedStatus}', ?, NOW())`,
           [
             chamado.id,
             chamado.status,

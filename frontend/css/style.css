@@ -323,6 +323,40 @@ html, body {
   font-size: 18px;
 }
 
+.nav-link .fleet-nav-icon {
+  display: inline-flex;
+  width: 32px;
+  min-width: 32px;
+  height: 22px;
+  margin-right: 10px;
+  color: currentColor;
+}
+
+.fleet-nav-icon svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.fleet-nav-icon path,
+.fleet-nav-icon circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fleet-nav-icon .fleet-window {
+  fill: currentColor;
+  opacity: 0.2;
+}
+
+.fleet-nav-icon .fleet-light {
+  fill: var(--primary-color);
+  stroke: none;
+}
+
 .sidebar-footer {
   border-top: 1px solid var(--border-color);
   padding-top: 15px;

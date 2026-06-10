@@ -89,8 +89,19 @@ const DEFAULT_MODULES_BY_ROLE = {
   viewer: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota']
 };
 
-const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'inventario', 'funcionarios', 'usuarios'];
-const ALL_PAGES = ['dashboard', 'chamados', 'infraestrutura', 'inventario', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
+const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'frota', 'inventario', 'funcionarios', 'usuarios'];
+const ALL_PAGES = ['dashboard', 'chamados', 'infraestrutura', 'frota', 'inventario', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
+const PAGE_MODULES = {
+  chamados: 'chamados_ti',
+  infraestrutura: 'infraestrutura',
+  frota: 'frota',
+  inventario: 'inventario',
+  comunicados: 'comunicados',
+  documentos: 'documentos',
+  funcionarios: 'funcionarios',
+  ideias: 'ideias',
+  usuarios: 'usuarios'
+};
 
 const RECENT_ANNOUNCEMENTS_LIMIT = 10;
 const DEFAULT_CHAMADO_METADATA = {
@@ -119,6 +130,8 @@ const DEFAULT_INFRA_METADATA = {
 };
 let chamadosCache = [];
 let infraChamadosCache = [];
+let frotaChamadosCache = [];
+let frotaVehiclesCache = [];
 let comunicadosCache = [];
 let documentosCache = [];
 let funcionariosCache = [];
@@ -126,6 +139,13 @@ let inventarioCache = [];
 let ideiasCache = [];
 let chamadosMetadata = DEFAULT_CHAMADO_METADATA;
 let infraMetadata = DEFAULT_INFRA_METADATA;
+let frotaMetadata = {
+  statuses: [],
+  priorities: ['baixa', 'media', 'alta', 'critica'],
+  vehicleTypes: [],
+  vehicleStatuses: [],
+  requestTypes: []
+};
 let usuariosCache = [];
 let editingChamadoId = null;
 let editingChamadoData = null;
@@ -156,7 +176,7 @@ function hasModule(moduleKey, user = currentUser) {
 }
 
 function isAdminWithModule(moduleKey, user) {
-  return normalizeRole(user?.role) === 'admin' && getUserModules(user).includes(moduleKey);
+  return normalizeRole(user?.role) === 'admin';
 }
 
 function canAccessUsers() {
@@ -222,6 +242,13 @@ function isPageEnabled(page) {
   return HOMOLOGATION_ENABLED_PAGES.includes(page);
 }
 
+function canAccessPage(page) {
+  if (!isPageEnabled(page)) return false;
+  if (page === 'usuarios') return canAccessUsers();
+  const moduleKey = PAGE_MODULES[page];
+  return !moduleKey || hasModule(moduleKey);
+}
+
 function getChamadosEndpoint(filters = {}) {
   const baseUrl = isAdmin() ? `${API_URL}/chamados/all` : `${API_URL}/chamados/my-chamados`;
   const params = new URLSearchParams();
@@ -260,6 +287,16 @@ function getInfraEndpoint(filters = {}) {
 
   const query = params.toString();
   return query ? `${baseUrl}?${query}` : baseUrl;
+}
+
+function getFrotaEndpoint(filters = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') params.set(key, value);
+  });
+  const query = params.toString();
+  const baseUrl = isAdmin() ? `${API_URL}/frota/all` : `${API_URL}/frota/my-chamados`;
+  return `${baseUrl}${query ? `?${query}` : ''}`;
 }
 
 function getChamadoUserName(chamado) {
@@ -357,6 +394,29 @@ function getInfraFilterState() {
     unit_name: getFieldValue('infraFilterUnit'),
     assigned_to: document.getElementById('infraFilterAssignedTo')?.value || '',
     search: getFieldValue('infraFilterSearch')
+  };
+}
+
+function canValidateFrotaSolution(chamado) {
+  return !isAdmin()
+    && Number(chamado?.user_id) === Number(currentUser?.id)
+    && chamado?.status === 'resolvido'
+    && chamado?.user_validation_status === 'pendente';
+}
+
+function getFrotaFilterState() {
+  return {
+    statusGroup: document.getElementById('frotaStatusFilter')?.value || 'ativos',
+    from: document.getElementById('frotaDateFrom')?.value || '',
+    to: document.getElementById('frotaDateTo')?.value || '',
+    vehicle_id: document.getElementById('frotaFilterVehicle')?.value || '',
+    priority: document.getElementById('frotaFilterPriority')?.value || '',
+    request_type: document.getElementById('frotaFilterType')?.value || '',
+    department: getFieldValue('frotaFilterDepartment'),
+    unit_name: getFieldValue('frotaFilterUnit'),
+    assigned_to: document.getElementById('frotaFilterAssignedTo')?.value || '',
+    sla_status: document.getElementById('frotaFilterSla')?.value || '',
+    search: getFieldValue('frotaFilterSearch')
   };
 }
 
@@ -633,12 +693,17 @@ window.addEventListener('load', async () => {
   organizeChamadoFormFields();
   await hydrateCurrentUser();
   renderCurrentUser();
+  applyRolePermissions();
   await loadCurrentUserAvatar();
-  await loadChamadosMetadata();
-  await loadInfraMetadata();
+  await Promise.all([
+    loadChamadosMetadata(),
+    loadInfraMetadata(),
+    loadFrotaMetadata()
+  ]);
   await loadChamadoUsers();
   applyRolePermissions();
-  loadPage('chamados');
+  const initialPage = HOMOLOGATION_ENABLED_PAGES.find(page => canAccessPage(page));
+  if (initialPage) loadPage(initialPage);
 });
 
 function organizeChamadoFormFields() {
@@ -759,13 +824,13 @@ function applyRolePermissions() {
 
   document.querySelectorAll('.nav-link[data-page]').forEach(link => {
     const page = link.dataset.page;
-    link.style.display = isPageEnabled(page) ? '' : 'none';
+    link.style.display = canAccessPage(page) ? '' : 'none';
   });
 
   ALL_PAGES.forEach(page => {
     const pageEl = document.getElementById(page);
     if (!pageEl) return;
-    if (!isPageEnabled(page)) {
+    if (!canAccessPage(page)) {
       pageEl.style.display = 'none';
     }
   });
@@ -825,14 +890,19 @@ function applyRolePermissions() {
     infraReportSection.style.display = isAdmin() ? '' : 'none';
   }
 
+  const frotaAdminSection = document.getElementById('frotaAdminSection');
+  if (frotaAdminSection) {
+    frotaAdminSection.style.display = isAdmin() ? '' : 'none';
+  }
+
+  const btnCadastrarVeiculoFrota = document.getElementById('btnCadastrarVeiculoFrota');
+  if (btnCadastrarVeiculoFrota) {
+    btnCadastrarVeiculoFrota.style.display = isAdmin() ? '' : 'none';
+  }
+
   const btnNovoInventarioItem = document.getElementById('btnNovoInventarioItem');
   if (btnNovoInventarioItem) {
     btnNovoInventarioItem.style.display = canManageInventario() ? '' : 'none';
-  }
-
-  const navInventario = document.getElementById('navInventario');
-  if (navInventario) {
-    navInventario.style.display = '';
   }
 
   const inventarioFormCard = document.getElementById('inventarioFormCard');
@@ -848,6 +918,12 @@ function applyRolePermissions() {
 
 // Carregar página
 function loadPage(page, evt) {
+  if (!canAccessPage(page)) {
+    alert(isPageEnabled(page)
+      ? 'Seu perfil nao tem acesso a essa area.'
+      : 'Esta funcionalidade esta temporariamente desabilitada para a homologacao.');
+    return;
+  }
   if (!isPageEnabled(page)) {
     alert('Esta funcionalidade está temporariamente desabilitada para a homologação.');
     return;
@@ -878,6 +954,7 @@ function loadPage(page, evt) {
     dashboard: 'Dashboard',
     chamados: 'Chamados de TI',
     infraestrutura: 'Infraestrutura Predial',
+    frota: 'Controle de Frota',
     inventario: 'Inventário de TI',
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
@@ -899,6 +976,8 @@ function loadPage(page, evt) {
     loadChamados();
   } else if (page === 'infraestrutura') {
     loadInfraChamados();
+  } else if (page === 'frota') {
+    loadFrotaPage();
   } else if (page === 'inventario') {
     loadInventario();
   } else if (page === 'comunicados') {
@@ -2410,6 +2489,780 @@ function downloadInfraAttachment(attachmentId, fileName) {
       window.URL.revokeObjectURL(url);
     })
     .catch(error => alert('Erro ao fazer download: ' + error.message));
+}
+
+// ==================== FROTA ====================
+function getFrotaStatusLabel(status) {
+  const labels = {
+    aberto: 'Aberto',
+    triagem: 'Em triagem',
+    em_atendimento: 'Em atendimento',
+    aguardando_informacoes: 'Aguardando informações',
+    aguardando_aprovacao: 'Aguardando aprovação',
+    aguardando_orcamento: 'Aguardando orçamento',
+    aguardando_fornecedor: 'Aguardando fornecedor',
+    aguardando_peca: 'Aguardando peça/material',
+    aguardando_agendamento: 'Aguardando agendamento',
+    manutencao_externa: 'Veículo em manutenção externa',
+    veiculo_indisponivel: 'Veículo indisponível',
+    resolvido: 'Resolvido',
+    validado_usuario: 'Validado pelo usuário',
+    finalizado: 'Finalizado',
+    cancelado: 'Cancelado',
+    reaberto: 'Reaberto'
+  };
+  return labels[status] || humanizeOptionLabel(status || '-');
+}
+
+function getFrotaSlaLabel(chamado) {
+  if (chamado?.sla_state === 'dentro_sla') return 'Dentro SLA';
+  if (chamado?.sla_state === 'fora_sla') return 'Fora SLA';
+  if ([
+    'aguardando_informacoes',
+    'aguardando_aprovacao',
+    'aguardando_orcamento',
+    'aguardando_fornecedor',
+    'aguardando_peca',
+    'aguardando_agendamento',
+    'manutencao_externa'
+  ].includes(chamado?.status)) return 'SLA pausado';
+  return 'Em andamento';
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatDateTimeLocalInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = number => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function showNewFrotaChamadoForm() {
+  const form = document.getElementById('newFrotaChamadoForm');
+  if (!form) return;
+  form.style.display = 'block';
+  const requester = document.getElementById('frotaRequester');
+  if (requester && !requester.value) requester.value = currentUser.name || currentUser.username || '';
+  const department = document.getElementById('frotaDepartment');
+  if (department && currentUser.department && [...department.options].some(option => option.value === currentUser.department)) {
+    department.value = currentUser.department;
+  }
+  focusFirstEditableField(form);
+}
+
+function hideFrotaChamadoForm() {
+  document.getElementById('newFrotaChamadoForm').style.display = 'none';
+  document.getElementById('formNewFrotaChamado')?.reset();
+  document.getElementById('frotaPlate').value = '';
+}
+
+async function loadFrotaVehicleOptions() {
+  const response = await fetch(`${API_URL}/frota/vehicles/options`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await readApiResponse(response);
+  if (!response.ok) throw new Error(data?.error || 'Erro ao carregar veículos');
+  const vehicles = Array.isArray(data) ? data : [];
+  const options = vehicles.map(vehicle => `
+    <option value="${vehicle.id}" data-plate="${escapeHtml(vehicle.placa || '')}" data-mileage="${Number(vehicle.quilometragem_atual || 0)}" data-driver="${escapeHtml(vehicle.motorista_responsavel || '')}">
+      ${escapeHtml([vehicle.prefixo, vehicle.marca, vehicle.modelo, vehicle.placa].filter(Boolean).join(' - '))}
+    </option>
+  `).join('');
+  const select = document.getElementById('frotaVehicle');
+  if (select) select.innerHTML = '<option value="">Selecione...</option>' + options;
+  const filter = document.getElementById('frotaFilterVehicle');
+  if (filter) filter.innerHTML = '<option value="">Todos</option>' + options;
+}
+
+document.getElementById('frotaVehicle')?.addEventListener('change', event => {
+  const option = event.target.selectedOptions?.[0];
+  document.getElementById('frotaPlate').value = option?.dataset?.plate || '';
+  document.getElementById('frotaMileage').value = option?.dataset?.mileage || '';
+  if (!document.getElementById('frotaDriver').value) {
+    document.getElementById('frotaDriver').value = option?.dataset?.driver || '';
+  }
+});
+
+document.getElementById('formNewFrotaChamado')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const formData = new FormData();
+  const fields = {
+    title: getFieldValue('frotaTitle'),
+    requester_name: getFieldValue('frotaRequester'),
+    vehicle_id: document.getElementById('frotaVehicle')?.value || '',
+    current_mileage: document.getElementById('frotaMileage')?.value || '0',
+    request_type: document.getElementById('frotaRequestType')?.value || '',
+    department: document.getElementById('frotaDepartment')?.value || '',
+    unit_name: document.getElementById('frotaUnit')?.value || '',
+    driver_name: getFieldValue('frotaDriver'),
+    vehicle_location: getFieldValue('frotaLocation'),
+    priority: document.getElementById('frotaPriority')?.value || 'media',
+    vehicle_in_operation: document.getElementById('frotaInOperation')?.value || '1',
+    safety_risk: document.getElementById('frotaSafetyRisk')?.value || '0',
+    needs_tow: document.getElementById('frotaNeedsTow')?.value || '0',
+    activity_interrupted: document.getElementById('frotaActivityInterrupted')?.value || '0',
+    description: getFieldValue('frotaDescription')
+  };
+  const errors = [];
+  if (!validateLength(fields.title, 3, 150)) errors.push('Título deve ter entre 3 e 150 caracteres');
+  if (!fields.vehicle_id) errors.push('Selecione o veículo');
+  if (!fields.request_type) errors.push('Selecione o tipo de solicitação');
+  if (!fields.department) errors.push('Selecione o setor');
+  if (!fields.unit_name) errors.push('Selecione a unidade/local');
+  if (!validateLength(fields.vehicle_location, 2, 255)) errors.push('Informe a localização do veículo');
+  if (!validateLength(fields.description, 10, 3000)) errors.push('Descrição deve ter entre 10 e 3000 caracteres');
+  if (showValidationAlert(errors)) return;
+  Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
+  for (const file of document.getElementById('frotaAttachments')?.files || []) formData.append('attachments', file);
+  try {
+    const response = await fetch(`${API_URL}/frota/create`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) throw new Error(data?.error || data?.errors?.map(item => item.msg).join(' | ') || 'Erro ao abrir chamado');
+    alert(`Chamado de frota aberto com sucesso! Número: ${data.ticketNumber}`);
+    hideFrotaChamadoForm();
+    if (!isAdmin()) showNewFrotaChamadoForm();
+    await loadFrotaTickets();
+  } catch (error) {
+    alert('Erro ao abrir chamado de frota: ' + error.message);
+  }
+});
+
+async function loadFrotaPage() {
+  try {
+    await loadFrotaMetadata();
+    if (isAdmin() && usuariosCache.length === 0) {
+      await loadChamadoUsers();
+    }
+    await loadFrotaVehicleOptions();
+    await loadFrotaTickets();
+    if (!isAdmin()) {
+      const heading = document.getElementById('frotaTicketsHeading');
+      if (heading) heading.textContent = 'Meus Chamados de Frota';
+      showNewFrotaChamadoForm();
+      return;
+    }
+    const heading = document.getElementById('frotaTicketsHeading');
+    if (heading) heading.textContent = 'Chamados de Frota';
+    await loadFrotaVehicles();
+  } catch (error) {
+    console.error('Erro ao carregar Frota:', error);
+    const body = document.getElementById('frotaTicketsTableBody');
+    if (body) {
+      body.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:20px;">
+        Não foi possível conectar ao servidor. Acesse pelo endereço da Intranet ou inicie o ambiente com <strong>npm start</strong>.
+      </td></tr>`;
+    }
+    if (!(error instanceof TypeError)) {
+      alert('Erro ao carregar módulo de Frota: ' + error.message);
+    }
+  }
+}
+
+function toggleFrotaVehicleForm() {
+  const form = document.getElementById('formFrotaVehicle');
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (form.style.display === 'block') focusFirstEditableField(form);
+}
+
+function showFrotaVehicleForm() {
+  if (!isAdmin()) {
+    alert('Somente administradores podem cadastrar veículos.');
+    return;
+  }
+  const form = document.getElementById('formFrotaVehicle');
+  if (!form) return;
+  form.style.display = 'block';
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  focusFirstEditableField(form);
+}
+
+function cancelFrotaVehicleEdit() {
+  document.getElementById('formFrotaVehicle')?.reset();
+  document.getElementById('frotaVehicleEditId').value = '';
+  document.getElementById('formFrotaVehicle').style.display = 'none';
+}
+
+document.getElementById('formFrotaVehicle')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!isAdmin()) return;
+  const editId = document.getElementById('frotaVehicleEditId').value;
+  const payload = {
+    placa: getFieldValue('vehiclePlate'),
+    prefixo: getFieldValue('vehiclePrefix'),
+    marca: getFieldValue('vehicleBrand'),
+    modelo: getFieldValue('vehicleModel'),
+    tipo_veiculo: document.getElementById('vehicleType').value,
+    categoria: getFieldValue('vehicleCategory'),
+    ano_fabricacao: document.getElementById('vehicleYear').value,
+    ano_modelo: document.getElementById('vehicleModelYear').value,
+    renavam: getFieldValue('vehicleRenavam'),
+    chassi: getFieldValue('vehicleChassis'),
+    cor: getFieldValue('vehicleColor'),
+    combustivel: getFieldValue('vehicleFuel'),
+    setor_responsavel: getFieldValue('vehicleDepartment'),
+    motorista_responsavel: getFieldValue('vehicleDriver'),
+    unidade: getFieldValue('vehicleUnit'),
+    status_operacional: document.getElementById('vehicleStatus').value,
+    quilometragem_atual: document.getElementById('vehicleMileage').value,
+    data_ultima_revisao: document.getElementById('vehicleLastReviewDate').value,
+    km_ultima_revisao: document.getElementById('vehicleLastReviewKm').value,
+    data_proxima_revisao: document.getElementById('vehicleNextReviewDate').value,
+    km_proxima_revisao: document.getElementById('vehicleNextReviewKm').value,
+    vencimento_licenciamento: document.getElementById('vehicleLicenseExpiry').value,
+    vencimento_seguro: document.getElementById('vehicleInsuranceExpiry').value,
+    vencimento_extintor: document.getElementById('vehicleExtinguisherExpiry').value,
+    ativo: document.getElementById('vehicleActive').value,
+    observacoes: getFieldValue('vehicleNotes')
+  };
+  try {
+    const response = await fetch(`${API_URL}/frota/vehicles${editId ? `/${editId}` : ''}`, {
+      method: editId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) throw new Error(data?.error || data?.errors?.map(item => item.msg).join(' | ') || 'Erro ao salvar veículo');
+    alert(data.message);
+    cancelFrotaVehicleEdit();
+    await Promise.all([loadFrotaVehicles(), loadFrotaVehicleOptions(), loadFrotaSummary()]);
+  } catch (error) {
+    alert('Erro ao salvar veículo: ' + error.message);
+  }
+});
+
+async function loadFrotaVehicles() {
+  if (!isAdmin()) return;
+  const response = await fetch(`${API_URL}/frota/vehicles`, { headers: { Authorization: `Bearer ${token}` } });
+  const data = await readApiResponse(response);
+  if (!response.ok) throw new Error(data?.error || 'Erro ao carregar veículos');
+  frotaVehiclesCache = Array.isArray(data) ? data : [];
+  const body = document.getElementById('frotaVehiclesTableBody');
+  if (!body) return;
+  body.innerHTML = frotaVehiclesCache.length ? frotaVehiclesCache.map(vehicle => `
+    <tr>
+      <td>${escapeHtml(vehicle.placa)}</td>
+      <td>${escapeHtml(vehicle.prefixo || '-')}</td>
+      <td>${escapeHtml(`${vehicle.marca} ${vehicle.modelo}`)}</td>
+      <td>${humanizeOptionLabel(vehicle.tipo_veiculo)}</td>
+      <td><span class="status-badge ${escapeHtml(vehicle.status_operacional)}">${humanizeOptionLabel(vehicle.status_operacional)}</span></td>
+      <td>${Number(vehicle.quilometragem_atual || 0).toLocaleString('pt-BR')} km</td>
+      <td>${escapeHtml(vehicle.setor_responsavel || '-')}</td>
+      <td><button class="btn btn-primary" onclick="editFrotaVehicle(${vehicle.id})" style="padding:5px 10px;font-size:12px;">Editar</button></td>
+    </tr>
+  `).join('') : '<tr><td colspan="8" style="text-align:center;">Nenhum veículo cadastrado.</td></tr>';
+}
+
+function editFrotaVehicle(id) {
+  const vehicle = frotaVehiclesCache.find(item => Number(item.id) === Number(id));
+  if (!vehicle) return;
+  const values = {
+    frotaVehicleEditId: vehicle.id,
+    vehiclePlate: vehicle.placa,
+    vehiclePrefix: vehicle.prefixo,
+    vehicleBrand: vehicle.marca,
+    vehicleModel: vehicle.modelo,
+    vehicleType: vehicle.tipo_veiculo,
+    vehicleCategory: vehicle.categoria,
+    vehicleYear: vehicle.ano_fabricacao,
+    vehicleModelYear: vehicle.ano_modelo,
+    vehicleRenavam: vehicle.renavam,
+    vehicleChassis: vehicle.chassi,
+    vehicleColor: vehicle.cor,
+    vehicleFuel: vehicle.combustivel,
+    vehicleDepartment: vehicle.setor_responsavel,
+    vehicleDriver: vehicle.motorista_responsavel,
+    vehicleUnit: vehicle.unidade,
+    vehicleStatus: vehicle.status_operacional,
+    vehicleMileage: vehicle.quilometragem_atual,
+    vehicleLastReviewDate: vehicle.data_ultima_revisao ? String(vehicle.data_ultima_revisao).slice(0, 10) : '',
+    vehicleLastReviewKm: vehicle.km_ultima_revisao,
+    vehicleNextReviewDate: vehicle.data_proxima_revisao ? String(vehicle.data_proxima_revisao).slice(0, 10) : '',
+    vehicleNextReviewKm: vehicle.km_proxima_revisao,
+    vehicleLicenseExpiry: vehicle.vencimento_licenciamento ? String(vehicle.vencimento_licenciamento).slice(0, 10) : '',
+    vehicleInsuranceExpiry: vehicle.vencimento_seguro ? String(vehicle.vencimento_seguro).slice(0, 10) : '',
+    vehicleExtinguisherExpiry: vehicle.vencimento_extintor ? String(vehicle.vencimento_extintor).slice(0, 10) : '',
+    vehicleActive: Number(vehicle.ativo) === 0 ? '0' : '1',
+    vehicleNotes: vehicle.observacoes
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) field.value = value ?? '';
+  });
+  document.getElementById('formFrotaVehicle').style.display = 'block';
+  focusFirstEditableField('formFrotaVehicle');
+}
+
+['frotaStatusFilter', 'frotaDateFrom', 'frotaDateTo', 'frotaFilterVehicle', 'frotaFilterPriority', 'frotaFilterType',
+  'frotaFilterDepartment', 'frotaFilterUnit', 'frotaFilterAssignedTo', 'frotaFilterSla']
+  .forEach(id => document.getElementById(id)?.addEventListener('change', () => loadFrotaTickets()));
+document.getElementById('frotaFilterSearch')?.addEventListener('input', () => loadFrotaTickets());
+
+async function loadFrotaTickets() {
+  const response = await fetch(getFrotaEndpoint(getFrotaFilterState()), {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await readApiResponse(response);
+  if (!response.ok) throw new Error(data?.error || 'Erro ao carregar chamados de frota');
+  frotaChamadosCache = Array.isArray(data) ? data : [];
+  const body = document.getElementById('frotaTicketsTableBody');
+  if (body) {
+    body.innerHTML = frotaChamadosCache.length ? frotaChamadosCache.map(ticket => `
+      <tr>
+        <td>${escapeHtml(ticket.ticket_number || `#${ticket.id}`)}</td>
+        <td>${new Date(ticket.opened_at).toLocaleDateString('pt-BR')}</td>
+        <td>${escapeHtml([ticket.prefixo, ticket.marca, ticket.modelo].filter(Boolean).join(' - '))}</td>
+        <td>${escapeHtml(ticket.placa)}</td>
+        <td>${humanizeOptionLabel(ticket.request_type)}</td>
+        <td><span class="priority-badge ${ticket.priority}">${humanizeOptionLabel(ticket.priority)}</span></td>
+        <td><span class="status-badge ${ticket.status}">${getFrotaStatusLabel(ticket.status)}</span></td>
+        <td>${escapeHtml(ticket.assigned_to_name || '-')}</td>
+        <td>${escapeHtml(ticket.supplier_name || '-')}</td>
+        <td>${getFrotaSlaLabel(ticket)}</td>
+        <td>${ticket.expected_return_at ? new Date(ticket.expected_return_at).toLocaleDateString('pt-BR') : '-'}</td>
+        <td>${formatCurrency(ticket.actual_cost || ticket.estimated_cost)}</td>
+        <td><button class="btn btn-primary" onclick="showFrotaDetails(${ticket.id})" style="padding:5px 10px;font-size:12px;">Ver</button></td>
+      </tr>
+    `).join('') : '<tr><td colspan="13" style="text-align:center;">Nenhum chamado de frota encontrado.</td></tr>';
+  }
+  if (isAdmin()) await loadFrotaSummary();
+}
+
+async function loadFrotaSummary() {
+  if (!isAdmin()) return;
+  const response = await fetch(`${API_URL}/frota/summary?${new URLSearchParams(getFrotaFilterState()).toString()}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) return;
+  const data = await response.json();
+  document.getElementById('frotaTotalVehicles').textContent = data?.totals?.vehicles || 0;
+  document.getElementById('frotaAvailableVehicles').textContent = data?.totals?.available || 0;
+  document.getElementById('frotaUnavailableVehicles').textContent = data?.totals?.unavailable || 0;
+  document.getElementById('frotaCriticalTickets').textContent = data?.totals?.critical || 0;
+  document.getElementById('frotaSupplierTickets').textContent = data?.totals?.awaitingSupplier || 0;
+  document.getElementById('frotaSlaPercentage').textContent = `${Number(data?.sla?.withinPercentage || 0).toFixed(0)}%`;
+}
+
+function buildFrotaAssigneeOptions(selectedId) {
+  return usuariosCache
+    .filter(user => isAdminWithModule('frota', user))
+    .map(user => `<option value="${user.id}" ${Number(selectedId) === Number(user.id) ? 'selected' : ''}>${escapeHtml(user.name || user.username)}</option>`)
+    .join('');
+}
+
+async function showFrotaDetails(id) {
+  try {
+    const response = await fetch(`${API_URL}/frota/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+    const ticket = await readApiResponse(response);
+    if (!response.ok) throw new Error(ticket?.error || 'Chamado não encontrado');
+    const statusOptions = (frotaMetadata.statuses || []).map(status => `<option value="${status}" ${ticket.status === status ? 'selected' : ''}>${getFrotaStatusLabel(status)}</option>`).join('');
+    const priorityOptions = (frotaMetadata.priorities || []).map(priority => `<option value="${priority}" ${ticket.priority === priority ? 'selected' : ''}>${humanizeOptionLabel(priority)}</option>`).join('');
+    const history = (ticket.history || []).map(item => `
+      <div style="padding:10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;">
+        <strong>${humanizeOptionLabel(item.action_type)}</strong>
+        <div style="font-size:12px;color:#64748b;">${escapeHtml(item.changed_by_name || 'Sistema')} - ${new Date(item.created_at).toLocaleString('pt-BR')}</div>
+        ${item.from_status || item.to_status ? `<div>${getFrotaStatusLabel(item.from_status)} → ${getFrotaStatusLabel(item.to_status)}</div>` : ''}
+        ${item.observation ? `<div>${escapeHtml(item.observation)}</div>` : ''}
+      </div>
+    `).join('');
+    const attachments = (ticket.attachments || []).map(item => `
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;">
+        <span>${escapeHtml(item.file_name)}</span>
+        <button class="btn btn-secondary" onclick="downloadFrotaAttachment(${item.id})" style="padding:4px 8px;">Download</button>
+      </div>
+    `).join('');
+    const details = document.getElementById('chamadoDetails');
+    details.innerHTML = `
+      <h3>${escapeHtml(ticket.ticket_number)} - ${escapeHtml(ticket.title)}</h3>
+      <p><strong>Veículo:</strong> ${escapeHtml([ticket.prefixo, ticket.marca, ticket.modelo, ticket.placa].filter(Boolean).join(' - '))}</p>
+      <p><strong>Solicitante:</strong> ${escapeHtml(ticket.requester_name || ticket.user_name || '-')} | <strong>Setor:</strong> ${escapeHtml(ticket.department)}</p>
+      <p><strong>Tipo:</strong> ${humanizeOptionLabel(ticket.request_type)} | <strong>KM:</strong> ${Number(ticket.current_mileage || 0).toLocaleString('pt-BR')}</p>
+      <p><strong>Motorista:</strong> ${escapeHtml(ticket.driver_name || '-')} | <strong>Local:</strong> ${escapeHtml(ticket.vehicle_location || '-')}</p>
+      <p><strong>Descrição:</strong> ${escapeHtml(ticket.description)}</p>
+      <p><strong>Status:</strong> ${getFrotaStatusLabel(ticket.status)} | <strong>SLA:</strong> ${getFrotaSlaLabel(ticket)}</p>
+      <p><strong>Tempo pausado:</strong> ${formatDurationSeconds(Number(ticket.paused_seconds || 0))} | <strong>Motivo:</strong> ${escapeHtml(ticket.sla_pause_reason || '-')}</p>
+      <p><strong>Fornecedor:</strong> ${escapeHtml(ticket.supplier_name || '-')} | <strong>Retorno previsto:</strong> ${ticket.expected_return_at ? new Date(ticket.expected_return_at).toLocaleString('pt-BR') : '-'}</p>
+      <p><strong>Custos:</strong> Estimado ${formatCurrency(ticket.estimated_cost)} | Aprovado ${formatCurrency(ticket.approved_cost)} | Real ${formatCurrency(ticket.actual_cost)}</p>
+      <p><strong>Diagnóstico:</strong> ${escapeHtml(ticket.diagnosis || '-')}</p>
+      <p><strong>Ação/serviço:</strong> ${escapeHtml(ticket.action_taken || ticket.service_performed || '-')}</p>
+      <p><strong>Solução:</strong> ${escapeHtml(ticket.solution || '-')}</p>
+      ${ticket.user_validation_status && ticket.user_validation_status !== 'nao_enviado' ? `
+        <p><strong>Validação do solicitante:</strong> ${getUserValidationLabel(ticket.user_validation_status)}</p>
+        ${ticket.user_validation_comment ? `<p><strong>Comentário:</strong> ${escapeHtml(ticket.user_validation_comment)}</p>` : ''}
+      ` : ''}
+      ${canValidateFrotaSolution(ticket) ? `
+        <div style="margin-top:20px;padding:16px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;">
+          <h3 style="margin-bottom:12px;">Validar solução</h3>
+          <div class="form-group">
+            <label for="frotaValidationComment">Descreva a situação, principalmente se ainda não foi resolvida</label>
+            <textarea id="frotaValidationComment" rows="3" maxlength="500"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+            <button class="btn btn-secondary" onclick="validateFrotaSolution(${ticket.id}, false)">Não validar e reabrir</button>
+            <button class="btn btn-primary" onclick="validateFrotaSolution(${ticket.id}, true)">Validar solução</button>
+          </div>
+        </div>
+      ` : ''}
+      ${isAdmin() ? `
+      <hr>
+      <h3>Controle administrativo</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Status</label><select id="editFrotaStatus">${statusOptions}</select></div>
+        <div class="form-group"><label>Prioridade</label><select id="editFrotaPriority">${priorityOptions}</select></div>
+        <div class="form-group"><label>Responsável</label><select id="editFrotaAssigned"><option value="">Definir depois</option>${buildFrotaAssigneeOptions(ticket.assigned_to)}</select></div>
+        <div class="form-group"><label>Veículo indisponível?</label><select id="editFrotaUnavailable"><option value="0" ${Number(ticket.vehicle_unavailable) === 0 ? 'selected' : ''}>Não</option><option value="1" ${Number(ticket.vehicle_unavailable) === 1 ? 'selected' : ''}>Sim</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Fornecedor</label><input id="editFrotaSupplier" value="${escapeHtml(ticket.supplier_name || '')}"></div>
+        <div class="form-group"><label>Acionado em</label><input id="editFrotaSupplierDate" type="datetime-local" value="${formatDateTimeLocalInput(ticket.supplier_contacted_at)}"></div>
+        <div class="form-group"><label>Previsão de retorno</label><input id="editFrotaExpectedReturn" type="datetime-local" value="${formatDateTimeLocalInput(ticket.expected_return_at)}"></div>
+        <div class="form-group"><label>KM atendimento</label><input id="editFrotaMileage" type="number" value="${Number(ticket.current_mileage || 0)}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Custo estimado</label><input id="editFrotaEstimatedCost" type="number" step="0.01" value="${ticket.estimated_cost || ''}"></div>
+        <div class="form-group"><label>Custo aprovado</label><input id="editFrotaApprovedCost" type="number" step="0.01" value="${ticket.approved_cost || ''}"></div>
+        <div class="form-group"><label>Custo realizado</label><input id="editFrotaActualCost" type="number" step="0.01" value="${ticket.actual_cost || ''}"></div>
+        <div class="form-group"><label>Nº orçamento</label><input id="editFrotaQuote" value="${escapeHtml(ticket.quote_number || '')}"></div>
+        <div class="form-group"><label>Nº nota fiscal</label><input id="editFrotaInvoice" value="${escapeHtml(ticket.invoice_number || '')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Diagnóstico</label><textarea id="editFrotaDiagnosis" rows="2">${escapeHtml(ticket.diagnosis || '')}</textarea></div>
+        <div class="form-group"><label>Ação realizada</label><textarea id="editFrotaAction" rows="2">${escapeHtml(ticket.action_taken || '')}</textarea></div>
+        <div class="form-group"><label>Peças utilizadas</label><textarea id="editFrotaParts" rows="2">${escapeHtml(ticket.parts_used || '')}</textarea></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Serviço realizado</label><textarea id="editFrotaService" rows="2">${escapeHtml(ticket.service_performed || '')}</textarea></div>
+        <div class="form-group"><label>Solução</label><textarea id="editFrotaSolution" rows="2">${escapeHtml(ticket.solution || '')}</textarea></div>
+        <div class="form-group"><label>Observação / motivo da pausa</label><textarea id="editFrotaObservation" rows="2">${escapeHtml(ticket.sla_pause_reason || '')}</textarea></div>
+      </div>
+      <div style="text-align:right;"><button class="btn btn-primary" onclick="saveFrotaTicket(${ticket.id})">Salvar alterações</button></div>
+      <h3 style="margin-top:20px;">Adicionar anexos</h3>
+      <input id="editFrotaAttachments" type="file" multiple accept="image/*,.pdf">
+      <button class="btn btn-secondary" onclick="uploadFrotaAttachments(${ticket.id})">Enviar anexos</button>
+      ` : ''}
+      <h3 style="margin-top:20px;">Anexos</h3>${attachments || '<p>Nenhum anexo.</p>'}
+      <h3 style="margin-top:20px;">Histórico</h3>${history || '<p>Sem histórico.</p>'}
+    `;
+    document.getElementById('chamadoModal').style.display = 'flex';
+  } catch (error) {
+    alert('Erro ao abrir chamado de frota: ' + error.message);
+  }
+}
+
+async function validateFrotaSolution(id, approved) {
+  const comment = getFieldValue('frotaValidationComment');
+  if (!approved && !validateLength(comment, 5, 500)) {
+    alert('Descreva em pelo menos 5 caracteres o que ainda não foi resolvido.');
+    return;
+  }
+  try {
+    const response = await fetch(`${API_URL}/frota/${id}/validation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ approved, comment })
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) {
+      throw new Error(data?.error || data?.errors?.map(item => item.msg).join(' | ') || 'Erro ao validar solução');
+    }
+    alert(data.message);
+    await loadFrotaTickets();
+    await showFrotaDetails(id);
+  } catch (error) {
+    alert('Erro ao validar solução do chamado de frota: ' + error.message);
+  }
+}
+
+async function saveFrotaTicket(id) {
+  const payload = {
+    status: document.getElementById('editFrotaStatus').value,
+    priority: document.getElementById('editFrotaPriority').value,
+    assigned_to: document.getElementById('editFrotaAssigned').value,
+    vehicle_unavailable: document.getElementById('editFrotaUnavailable').value,
+    supplier_name: getFieldValue('editFrotaSupplier'),
+    supplier_contacted_at: document.getElementById('editFrotaSupplierDate').value,
+    expected_return_at: document.getElementById('editFrotaExpectedReturn').value,
+    current_mileage: document.getElementById('editFrotaMileage').value,
+    estimated_cost: document.getElementById('editFrotaEstimatedCost').value,
+    approved_cost: document.getElementById('editFrotaApprovedCost').value,
+    actual_cost: document.getElementById('editFrotaActualCost').value,
+    quote_number: getFieldValue('editFrotaQuote'),
+    invoice_number: getFieldValue('editFrotaInvoice'),
+    diagnosis: getFieldValue('editFrotaDiagnosis'),
+    action_taken: getFieldValue('editFrotaAction'),
+    parts_used: getFieldValue('editFrotaParts'),
+    service_performed: getFieldValue('editFrotaService'),
+    solution: getFieldValue('editFrotaSolution'),
+    observation: getFieldValue('editFrotaObservation'),
+    sla_pause_reason: getFieldValue('editFrotaObservation')
+  };
+  try {
+    const response = await fetch(`${API_URL}/frota/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) throw new Error(data?.error || 'Erro ao atualizar chamado');
+    alert(data.message);
+    await Promise.all([loadFrotaTickets(), loadFrotaVehicles(), loadFrotaVehicleOptions()]);
+    await showFrotaDetails(id);
+  } catch (error) {
+    alert('Erro ao atualizar chamado de frota: ' + error.message);
+  }
+}
+
+async function uploadFrotaAttachments(id) {
+  const files = document.getElementById('editFrotaAttachments')?.files;
+  if (!files?.length) return alert('Selecione ao menos um arquivo.');
+  const formData = new FormData();
+  for (const file of files) formData.append('attachments', file);
+  const response = await fetch(`${API_URL}/frota/${id}/attachments`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData
+  });
+  const data = await readApiResponse(response);
+  if (!response.ok) return alert(data?.error || 'Erro ao enviar anexos');
+  alert(data.message);
+  await showFrotaDetails(id);
+}
+
+async function downloadFrotaAttachment(id) {
+  const response = await fetch(`${API_URL}/frota/download/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) return alert('Erro ao baixar anexo.');
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'anexo-frota';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function getFrotaReportRows() {
+  return frotaChamadosCache.map(ticket => ({
+    numero: ticket.ticket_number || `#${ticket.id}`,
+    solicitante: ticket.requester_name || ticket.user_name || '-',
+    setor: ticket.department || '-',
+    unidade: ticket.unit_name || '-',
+    veiculo: [ticket.prefixo, ticket.marca, ticket.modelo].filter(Boolean).join(' - '),
+    placa: ticket.placa || '-',
+    motorista: ticket.driver_name || '-',
+    localizacao: ticket.vehicle_location || '-',
+    quilometragem: `${Number(ticket.current_mileage || 0).toLocaleString('pt-BR')} km`,
+    tipo: humanizeOptionLabel(ticket.request_type),
+    prioridade: humanizeOptionLabel(ticket.priority),
+    status: getFrotaStatusLabel(ticket.status),
+    responsavel: ticket.assigned_to_name || '-',
+    fornecedor: ticket.supplier_name || '-',
+    sla: getFrotaSlaLabel(ticket),
+    tempoTotal: formatDurationSeconds(getChamadoTotalSeconds(ticket)),
+    tempoAtendimento: ticket.service_started_at ? formatDurationSeconds(getChamadoServiceSeconds(ticket)) : '-',
+    tempoPausado: formatDurationSeconds(getFrotaPausedSeconds(ticket)),
+    indisponivel: Number(ticket.vehicle_unavailable) === 1 ? 'Sim' : 'Não',
+    retorno: ticket.expected_return_at ? new Date(ticket.expected_return_at).toLocaleString('pt-BR') : '-',
+    custoEstimado: formatCurrency(ticket.estimated_cost),
+    custoAprovado: formatCurrency(ticket.approved_cost),
+    custoRealizado: formatCurrency(ticket.actual_cost),
+    abertura: new Date(ticket.opened_at).toLocaleString('pt-BR'),
+    resolucao: ticket.resolved_at ? new Date(ticket.resolved_at).toLocaleString('pt-BR') : '-',
+    encerramento: ticket.closed_at ? new Date(ticket.closed_at).toLocaleString('pt-BR') : '-'
+  }));
+}
+
+function getFrotaVehicleReportRows() {
+  return frotaVehiclesCache.map(vehicle => ({
+    placa: vehicle.placa || '-',
+    prefixo: vehicle.prefixo || '-',
+    veiculo: [vehicle.marca, vehicle.modelo].filter(Boolean).join(' ') || '-',
+    tipo: humanizeOptionLabel(vehicle.tipo_veiculo),
+    categoria: vehicle.categoria || '-',
+    status: humanizeOptionLabel(vehicle.status_operacional),
+    quilometragem: `${Number(vehicle.quilometragem_atual || 0).toLocaleString('pt-BR')} km`,
+    setor: vehicle.setor_responsavel || '-',
+    unidade: vehicle.unidade || '-',
+    motorista: vehicle.motorista_responsavel || '-',
+    proximaRevisao: vehicle.data_proxima_revisao ? new Date(vehicle.data_proxima_revisao).toLocaleDateString('pt-BR') : '-',
+    proximaRevisaoKm: vehicle.km_proxima_revisao ? `${Number(vehicle.km_proxima_revisao).toLocaleString('pt-BR')} km` : '-',
+    licenciamento: vehicle.vencimento_licenciamento ? new Date(vehicle.vencimento_licenciamento).toLocaleDateString('pt-BR') : '-',
+    seguro: vehicle.vencimento_seguro ? new Date(vehicle.vencimento_seguro).toLocaleDateString('pt-BR') : '-'
+  }));
+}
+
+function getFrotaReportColumnLabel(column) {
+  const labels = {
+    numero: 'Número',
+    localizacao: 'Localização',
+    tempoTotal: 'Tempo total',
+    tempoAtendimento: 'Tempo de atendimento',
+    tempoPausado: 'Tempo pausado',
+    indisponivel: 'Veículo indisponível',
+    custoEstimado: 'Custo estimado',
+    custoAprovado: 'Custo aprovado',
+    custoRealizado: 'Custo realizado',
+    resolucao: 'Resolução',
+    proximaRevisao: 'Próxima revisão',
+    proximaRevisaoKm: 'Próxima revisão (KM)'
+  };
+  return labels[column] || humanizeOptionLabel(column);
+}
+
+function getFrotaPausedSeconds(ticket) {
+  const pausedStatuses = [
+    'aguardando_informacoes',
+    'aguardando_aprovacao',
+    'aguardando_orcamento',
+    'aguardando_fornecedor',
+    'aguardando_peca',
+    'aguardando_agendamento',
+    'manutencao_externa'
+  ];
+  const activePause = ticket.sla_paused_at && pausedStatuses.includes(ticket.status)
+    ? secondsBetweenDates(ticket.sla_paused_at, new Date())
+    : 0;
+  return Number(ticket.paused_seconds || 0) + activePause;
+}
+
+function ensureFrotaReportAccess() {
+  if (!isAdmin()) {
+    alert('A geração do relatório de Frota é permitida somente para administradores.');
+    return false;
+  }
+  return true;
+}
+
+function getFrotaReportAppliedFilters() {
+  const filters = getFrotaFilterState();
+  return [
+    ['Status', filters.statusGroup || 'ativos'],
+    ['Período', filters.from || filters.to ? `${filters.from || '...'} até ${filters.to || '...'}` : 'Todos'],
+    ['Veículo', document.getElementById('frotaFilterVehicle')?.selectedOptions?.[0]?.textContent?.trim() || 'Todos'],
+    ['Tipo', document.getElementById('frotaFilterType')?.selectedOptions?.[0]?.textContent || 'Todos'],
+    ['Prioridade', filters.priority || 'Todas'],
+    ['Setor', filters.department || 'Todos'],
+    ['Unidade/local', filters.unit_name || 'Todas'],
+    ['Responsável', document.getElementById('frotaFilterAssignedTo')?.selectedOptions?.[0]?.textContent || 'Todos'],
+    ['SLA', document.getElementById('frotaFilterSla')?.selectedOptions?.[0]?.textContent || 'Todos'],
+    ['Busca', filters.search || '-']
+  ];
+}
+
+function getFrotaReportSummary() {
+  const average = values => {
+    const valid = values.filter(value => Number(value) > 0);
+    if (!valid.length) return '-';
+    return formatDurationSeconds(Math.round(valid.reduce((sum, value) => sum + Number(value), 0) / valid.length));
+  };
+  const costs = frotaChamadosCache.reduce((totals, ticket) => ({
+    estimated: totals.estimated + Number(ticket.estimated_cost || 0),
+    approved: totals.approved + Number(ticket.approved_cost || 0),
+    actual: totals.actual + Number(ticket.actual_cost || 0)
+  }), { estimated: 0, approved: 0, actual: 0 });
+  return {
+    vehicles: document.getElementById('frotaTotalVehicles')?.textContent || '0',
+    available: document.getElementById('frotaAvailableVehicles')?.textContent || '0',
+    unavailable: document.getElementById('frotaUnavailableVehicles')?.textContent || '0',
+    critical: document.getElementById('frotaCriticalTickets')?.textContent || '0',
+    supplier: document.getElementById('frotaSupplierTickets')?.textContent || '0',
+    sla: document.getElementById('frotaSlaPercentage')?.textContent || '0%',
+    averageTotal: average(frotaChamadosCache.map(getChamadoTotalSeconds)),
+    averageService: average(frotaChamadosCache.map(getChamadoServiceSeconds)),
+    averagePaused: average(frotaChamadosCache.map(getFrotaPausedSeconds)),
+    estimatedCost: formatCurrency(costs.estimated),
+    approvedCost: formatCurrency(costs.approved),
+    actualCost: formatCurrency(costs.actual)
+  };
+}
+
+function buildFrotaReportDocument() {
+  const rows = getFrotaReportRows();
+  const vehicleRows = getFrotaVehicleReportRows();
+  const summary = getFrotaReportSummary();
+  const filters = getFrotaReportAppliedFilters();
+  const columns = rows.length ? Object.keys(rows[0]) : [
+    'numero', 'solicitante', 'setor', 'unidade', 'veiculo', 'placa', 'motorista', 'localizacao',
+    'quilometragem', 'tipo', 'prioridade', 'status', 'responsavel', 'fornecedor', 'sla',
+    'tempoTotal', 'tempoAtendimento', 'tempoPausado', 'indisponivel', 'retorno',
+    'custoEstimado', 'custoAprovado', 'custoRealizado', 'abertura', 'resolucao', 'encerramento'
+  ];
+  const vehicleColumns = vehicleRows.length ? Object.keys(vehicleRows[0]) : [
+    'placa', 'prefixo', 'veiculo', 'tipo', 'categoria', 'status', 'quilometragem', 'setor',
+    'unidade', 'motorista', 'proximaRevisao', 'proximaRevisaoKm', 'licenciamento', 'seguro'
+  ];
+  const rowsHtml = rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row[column])}</td>`).join('')}</tr>`).join('');
+  const vehicleRowsHtml = vehicleRows.map(row => `<tr>${vehicleColumns.map(column => `<td>${escapeHtml(row[column])}</td>`).join('')}</tr>`).join('');
+  const html = `<!DOCTYPE html>
+    <html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório de Controle de Frota</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#17211d;background:#f5f8f6}.toolbar{display:flex;gap:10px;margin-bottom:20px}.toolbar button{border:0;border-radius:8px;padding:10px 14px;cursor:pointer}.primary{background:#6f9f86;color:#fff}.secondary{background:#dfe8e3}.sheet{background:#fff;padding:24px;border-radius:16px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:20px 0}.card{border:1px solid #d8e1dc;border-left:4px solid #6f9f86;border-radius:9px;padding:10px}.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 20px;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid #d8e1dc;padding:5px;text-align:left;vertical-align:top}th{background:#edf3ef}@media print{body{padding:0;background:#fff}.toolbar{display:none}.sheet{padding:0}}
+    </style></head><body>
+    <div class="toolbar"><button class="primary" onclick="window.print()">Imprimir / Salvar PDF</button><button class="secondary" onclick="window.__saveReportHtml()">Salvar HTML</button></div>
+    <div class="sheet"><h1>Relatório de Controle e Chamados de Frota</h1><p>Gerado em ${escapeHtml(new Date().toLocaleString('pt-BR'))}</p>
+    <div class="cards">
+      ${Object.entries({
+        'Veículos ativos': summary.vehicles, 'Disponíveis': summary.available, 'Indisponíveis': summary.unavailable,
+        'Chamados críticos': summary.critical, 'Aguard. fornecedor': summary.supplier, 'SLA': summary.sla,
+        'Média total': summary.averageTotal, 'Média atendimento': summary.averageService, 'Média pausado': summary.averagePaused,
+        'Custo estimado': summary.estimatedCost, 'Custo aprovado': summary.approvedCost, 'Custo realizado': summary.actualCost
+      }).map(([label, value]) => `<div class="card"><strong>${escapeHtml(label)}</strong><div>${escapeHtml(value)}</div></div>`).join('')}
+    </div>
+    <h2>Filtros aplicados</h2><div class="meta">${filters.map(([label, value]) => `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</div>`).join('')}</div>
+    <h2>Veículos cadastrados</h2><table><thead><tr>${vehicleColumns.map(column => `<th>${escapeHtml(getFrotaReportColumnLabel(column))}</th>`).join('')}</tr></thead>
+    <tbody>${vehicleRowsHtml || `<tr><td colspan="${vehicleColumns.length}">Nenhum veículo cadastrado.</td></tr>`}</tbody></table>
+    <h2 style="margin-top:24px">Chamados de Frota</h2><table><thead><tr>${columns.map(column => `<th>${escapeHtml(getFrotaReportColumnLabel(column))}</th>`).join('')}</tr></thead>
+    <tbody>${rowsHtml || `<tr><td colspan="${columns.length}">Nenhum chamado encontrado.</td></tr>`}</tbody></table></div>
+    <script>window.__saveReportHtml=function(){const b=new Blob([document.documentElement.outerHTML],{type:'text/html;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='relatorio-frota-${getChamadosReportFileStamp()}.html';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u)};</script>
+    </body></html>
+  `;
+  return { html, rows, vehicleRows, summary, filters, columns, vehicleColumns };
+}
+
+function openFrotaReportHtml(printOnOpen = false) {
+  if (!ensureFrotaReportAccess()) return;
+  const report = window.open('', '_blank', 'width=1400,height=900');
+  if (!report) return alert('Não foi possível abrir o relatório.');
+  report.document.write(buildFrotaReportDocument().html);
+  report.document.close();
+  report.focus();
+  if (printOnOpen) report.onload = () => report.print();
+}
+
+function generateFrotaReportPdf() {
+  openFrotaReportHtml(true);
+}
+
+function exportFrotaReportExcel() {
+  if (!ensureFrotaReportAccess()) return;
+  downloadChamadosReportFile(buildFrotaReportDocument().html, `relatorio-frota-${getChamadosReportFileStamp()}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+}
+
+function exportFrotaReportCsv() {
+  if (!ensureFrotaReportAccess()) return;
+  const { rows, columns } = buildFrotaReportDocument();
+  const csvValue = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const csv = [columns.map(getFrotaReportColumnLabel).join(';'), ...rows.map(row => columns.map(column => csvValue(row[column])).join(';'))].join('\r\n');
+  downloadChamadosReportFile(`\uFEFF${csv}`, `relatorio-frota-${getChamadosReportFileStamp()}.csv`, 'text/csv;charset=utf-8');
+}
+
+function exportFrotaReportJson() {
+  if (!ensureFrotaReportAccess()) return;
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    filters: Object.fromEntries(getFrotaReportAppliedFilters()),
+    summary: getFrotaReportSummary(),
+    veiculos: getFrotaVehicleReportRows(),
+    chamados: getFrotaReportRows()
+  };
+  downloadChamadosReportFile(JSON.stringify(payload, null, 2), `relatorio-frota-${getChamadosReportFileStamp()}.json`, 'application/json;charset=utf-8');
 }
 
 // ==================== INVENTÁRIO DE TI ====================
@@ -4621,6 +5474,7 @@ function populateUsuariosSelects() {
     .join('');
   const chamadosOptions = buildOptions('chamados_ti');
   const infraOptions = buildOptions('infraestrutura');
+  const frotaOptions = buildOptions('frota');
 
   const chamadosAssignedTo = document.getElementById('chamadoAssignedTo');
   if (chamadosAssignedTo) {
@@ -4641,6 +5495,11 @@ function populateUsuariosSelects() {
   if (infraFilterAssignedTo) {
     infraFilterAssignedTo.innerHTML = '<option value="">Todos</option>' + infraOptions;
   }
+
+  const frotaFilterAssignedTo = document.getElementById('frotaFilterAssignedTo');
+  if (frotaFilterAssignedTo) {
+    frotaFilterAssignedTo.innerHTML = '<option value="">Todos</option>' + frotaOptions;
+  }
 }
 
 function populateDepartmentFilter() {
@@ -4650,6 +5509,10 @@ function populateDepartmentFilter() {
 
   const options = Array.from(sourceSelect.options)
     .filter(option => option.value)
+    .map(option => `<option value="${option.value}">${option.textContent}</option>`)
+    .join('');
+  const frotaOptions = Array.from(sourceSelect.options)
+    .filter(option => option.value && option.value.trim().toLowerCase() !== 'home office')
     .map(option => `<option value="${option.value}">${option.textContent}</option>`)
     .join('');
 
@@ -4664,6 +5527,16 @@ function populateDepartmentFilter() {
   if (infraFilterDepartment) {
     infraFilterDepartment.innerHTML = '<option value="">Todos</option>' + options;
   }
+
+  const frotaDepartment = document.getElementById('frotaDepartment');
+  if (frotaDepartment) {
+    frotaDepartment.innerHTML = '<option value="">Selecione...</option>' + options;
+  }
+
+  const frotaFilterDepartment = document.getElementById('frotaFilterDepartment');
+  if (frotaFilterDepartment) {
+    frotaFilterDepartment.innerHTML = '<option value="">Todos</option>' + options;
+  }
 }
 
 function populateUnitFilter() {
@@ -4673,6 +5546,10 @@ function populateUnitFilter() {
 
   const options = Array.from(sourceSelect.options)
     .filter(option => option.value)
+    .map(option => `<option value="${option.value}">${option.textContent}</option>`)
+    .join('');
+  const frotaOptions = Array.from(sourceSelect.options)
+    .filter(option => option.value && option.value.trim().toLowerCase() !== 'home office')
     .map(option => `<option value="${option.value}">${option.textContent}</option>`)
     .join('');
 
@@ -4686,6 +5563,16 @@ function populateUnitFilter() {
   const infraFilterUnit = document.getElementById('infraFilterUnit');
   if (infraFilterUnit) {
     infraFilterUnit.innerHTML = '<option value="">Todas</option>' + options;
+  }
+
+  const frotaUnit = document.getElementById('frotaUnit');
+  if (frotaUnit) {
+    frotaUnit.innerHTML = '<option value="">Selecione...</option>' + frotaOptions;
+  }
+
+  const frotaFilterUnit = document.getElementById('frotaFilterUnit');
+  if (frotaFilterUnit) {
+    frotaFilterUnit.innerHTML = '<option value="">Todas</option>' + frotaOptions;
   }
 }
 
@@ -4723,6 +5610,37 @@ async function loadInfraMetadata() {
   buildInfraCategoryOptions('infraCategory');
   buildInfraCategoryOptions('infraFilterCategory', 'Todas');
   syncInfraSubcategoryOptions();
+}
+
+async function loadFrotaMetadata() {
+  if (!hasModule('frota')) return;
+  try {
+    const response = await fetch(`${API_URL}/frota/metadata`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.ok) frotaMetadata = await response.json();
+  } catch (error) {
+    console.error('Erro ao carregar metadados de frota:', error);
+  }
+
+  const requestOptions = (frotaMetadata.requestTypes || [])
+    .map(value => `<option value="${value}">${humanizeOptionLabel(value)}</option>`)
+    .join('');
+  const requestSelect = document.getElementById('frotaRequestType');
+  if (requestSelect) requestSelect.innerHTML = '<option value="">Selecione...</option>' + requestOptions;
+  const requestFilter = document.getElementById('frotaFilterType');
+  if (requestFilter) requestFilter.innerHTML = '<option value="">Todos</option>' + requestOptions;
+
+  const vehicleType = document.getElementById('vehicleType');
+  if (vehicleType) {
+    vehicleType.innerHTML = '<option value="">Selecione...</option>'
+      + (frotaMetadata.vehicleTypes || []).map(value => `<option value="${value}">${humanizeOptionLabel(value)}</option>`).join('');
+  }
+  const vehicleStatus = document.getElementById('vehicleStatus');
+  if (vehicleStatus) {
+    vehicleStatus.innerHTML = (frotaMetadata.vehicleStatuses || [])
+      .map(value => `<option value="${value}">${humanizeOptionLabel(value)}</option>`).join('');
+  }
 }
 
 async function loadChamadoUsers() {

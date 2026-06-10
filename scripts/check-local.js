@@ -42,8 +42,28 @@ function checkHttp(label, url) {
 
 async function main() {
   run('Sintaxe backend/routes/chamados.js', process.execPath, ['--check', 'backend/routes/chamados.js']);
+  run('Sintaxe backend/routes/frota.js', process.execPath, ['--check', 'backend/routes/frota.js']);
   run('Sintaxe backend/server.js', process.execPath, ['--check', 'backend/server.js']);
   run('Sintaxe frontend/js/dashboard.js', process.execPath, ['--check', 'frontend/js/dashboard.js']);
+
+  run(
+    'Estrutura de validacao da Frota no banco local',
+    process.execPath,
+    [
+      '-e',
+      `const pool=require('./config/database');
+       (async()=>{
+         const expected=['last_reopen_reason','reopen_count','user_validated_at','user_validation_comment','user_validation_status'];
+         const [rows]=await pool.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='frota_chamados' AND COLUMN_NAME IN ('user_validation_status','user_validation_comment','user_validated_at','reopen_count','last_reopen_reason') ORDER BY COLUMN_NAME");
+         const found=rows.map(r=>r.COLUMN_NAME);
+         const missing=expected.filter(name=>!found.includes(name));
+         if(missing.length){ console.error('Faltando: '+missing.join(', ')); process.exit(1); }
+         console.log(found.join(', '));
+         await pool.end();
+       })().catch(error=>{ console.error(error.message); process.exit(1); });`
+    ],
+    { cwd: path.join(rootDir, 'backend') }
+  );
 
   run(
     'Colunas de validacao no banco local',
