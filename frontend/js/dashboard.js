@@ -80,7 +80,7 @@ const USER_MODULES = [
   { key: 'documentos', label: 'Documentos' },
   { key: 'comunicados', label: 'Comunicados' },
   { key: 'ideias', label: 'Ideias' },
-  { key: 'frota', label: 'Frota' }
+  { key: 'frota', label: 'Chamados de Frota' }
 ];
 
 const DEFAULT_MODULES_BY_ROLE = {
@@ -954,7 +954,7 @@ function loadPage(page, evt) {
     dashboard: 'Dashboard',
     chamados: 'Chamados de TI',
     infraestrutura: 'Infraestrutura Predial',
-    frota: 'Controle de Frota',
+    frota: 'Chamados de Frota',
     inventario: 'Inventário de TI',
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
