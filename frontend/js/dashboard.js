@@ -92,12 +92,13 @@ const DEFAULT_MODULES_BY_ROLE = {
   viewer: ['chamados_ti', 'infraestrutura', 'inventario', 'funcionarios', 'documentos', 'comunicados', 'ideias', 'frota']
 };
 
-const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'frota', 'inventario', 'funcionarios', 'usuarios'];
-const ALL_PAGES = ['dashboard', 'chamados', 'infraestrutura', 'frota', 'inventario', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
+const HOMOLOGATION_ENABLED_PAGES = ['chamados', 'infraestrutura', 'frota', 'cadastroFrota', 'inventario', 'funcionarios', 'usuarios'];
+const ALL_PAGES = ['dashboard', 'chamados', 'infraestrutura', 'frota', 'cadastroFrota', 'inventario', 'comunicados', 'documentos', 'funcionarios', 'ideias', 'usuarios'];
 const PAGE_MODULES = {
   chamados: 'chamados_ti',
   infraestrutura: 'infraestrutura',
   frota: 'frota',
+  cadastroFrota: 'frota',
   inventario: 'inventario',
   comunicados: 'comunicados',
   documentos: 'documentos',
@@ -250,6 +251,7 @@ function isPageEnabled(page) {
 function canAccessPage(page) {
   if (!isPageEnabled(page)) return false;
   if (page === 'usuarios') return canAccessUsers();
+  if (page === 'cadastroFrota') return isAdmin();
   const moduleKey = PAGE_MODULES[page];
   return !moduleKey || hasModule(moduleKey);
 }
@@ -960,6 +962,7 @@ function loadPage(page, evt) {
     chamados: 'Chamados de TI',
     infraestrutura: 'Infraestrutura Predial',
     frota: 'Chamados de Frota',
+    cadastroFrota: 'Cadastro de Frota',
     inventario: 'Inventário de TI',
     comunicados: 'Comunicados',
     documentos: 'Repositório de Documentos',
@@ -983,6 +986,8 @@ function loadPage(page, evt) {
     loadInfraChamados();
   } else if (page === 'frota') {
     loadFrotaPage();
+  } else if (page === 'cadastroFrota') {
+    loadCadastroFrotaPage();
   } else if (page === 'inventario') {
     loadInventario();
   } else if (page === 'comunicados') {
@@ -2688,6 +2693,26 @@ async function loadFrotaPage() {
     }
     if (!(error instanceof TypeError)) {
       alert('Erro ao carregar módulo de Frota: ' + error.message);
+    }
+  }
+}
+
+async function loadCadastroFrotaPage() {
+  if (!isAdmin()) return;
+
+  try {
+    await loadFrotaMetadata();
+    await loadFrotaVehicles();
+  } catch (error) {
+    console.error('Erro ao carregar Cadastro de Frota:', error);
+    const body = document.getElementById('frotaVehiclesTableBody');
+    if (body) {
+      body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;">
+        Não foi possível carregar os veículos cadastrados.
+      </td></tr>`;
+    }
+    if (!(error instanceof TypeError)) {
+      alert('Erro ao carregar Cadastro de Frota: ' + error.message);
     }
   }
 }

@@ -45,6 +45,9 @@
           </span>
           Chamados de Frota
         </a>
+        <a href="#" class="nav-link" id="navCadastroFrota" data-page="cadastroFrota" onclick="loadPage('cadastroFrota', event)">
+          <span class="icon">CF</span> Cadastro de Frota
+        </a>
         <a href="#" class="nav-link" id="navInventario" data-page="inventario" onclick="loadPage('inventario', event)">
           <span class="icon">IT</span> Inventário TI
         </a>
@@ -886,12 +889,11 @@
           </div>
         </div>
 
-        <!-- Inventário TI -->
+        <!-- Chamados de Frota -->
         <div id="frota" class="page-content" style="display: none;">
           <div class="page-header">
-            <h2>Controle e Chamados de Frota</h2>
+            <h2>Chamados de Frota</h2>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button id="btnCadastrarVeiculoFrota" type="button" onclick="showFrotaVehicleForm()" class="btn btn-secondary" style="display:none;">+ Cadastrar Veículo</button>
               <button onclick="showNewFrotaChamadoForm()" class="btn btn-primary">+ Novo Chamado de Frota</button>
             </div>
           </div>
@@ -941,51 +943,6 @@
             </div>
 
             <div class="form-section">
-              <div class="page-header"><h3>Cadastro de Veículos</h3></div>
-              <form id="formFrotaVehicle" style="display:none;">
-                <input type="hidden" id="frotaVehicleEditId">
-                <div class="form-row">
-                  <div class="form-group"><label for="vehiclePlate">Placa:</label><input id="vehiclePlate" maxlength="10" required></div>
-                  <div class="form-group"><label for="vehiclePrefix">Prefixo:</label><input id="vehiclePrefix" maxlength="50"></div>
-                  <div class="form-group"><label for="vehicleBrand">Marca:</label><input id="vehicleBrand" maxlength="100" required></div>
-                  <div class="form-group"><label for="vehicleModel">Modelo:</label><input id="vehicleModel" maxlength="100" required></div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group"><label for="vehicleType">Tipo:</label><select id="vehicleType" required></select></div>
-                  <div class="form-group"><label for="vehicleCategory">Categoria:</label><input id="vehicleCategory" maxlength="100"></div>
-                  <div class="form-group"><label for="vehicleYear">Ano fabricação:</label><input id="vehicleYear" type="number" min="1950" max="2100"></div>
-                  <div class="form-group"><label for="vehicleModelYear">Ano modelo:</label><input id="vehicleModelYear" type="number" min="1950" max="2100"></div>
-                  <div class="form-group"><label for="vehicleFuel">Combustível:</label><input id="vehicleFuel" maxlength="50"></div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group"><label for="vehicleRenavam">RENAVAM:</label><input id="vehicleRenavam" maxlength="50"></div>
-                  <div class="form-group"><label for="vehicleChassis">Chassi:</label><input id="vehicleChassis" maxlength="100"></div>
-                  <div class="form-group"><label for="vehicleColor">Cor:</label><input id="vehicleColor" maxlength="50"></div>
-                  <div class="form-group"><label for="vehicleActive">Ativo:</label><select id="vehicleActive"><option value="1">Sim</option><option value="0">Não</option></select></div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group"><label for="vehicleDepartment">Setor responsável:</label><input id="vehicleDepartment" maxlength="100"></div>
-                  <div class="form-group"><label for="vehicleDriver">Motorista responsável:</label><input id="vehicleDriver" maxlength="120"></div>
-                  <div class="form-group"><label for="vehicleUnit">Unidade:</label><input id="vehicleUnit" maxlength="100"></div>
-                  <div class="form-group"><label for="vehicleStatus">Status operacional:</label><select id="vehicleStatus"></select></div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group"><label for="vehicleMileage">Quilometragem:</label><input id="vehicleMileage" type="number" min="0"></div>
-                  <div class="form-group"><label for="vehicleLastReviewDate">Ultima revisao:</label><input id="vehicleLastReviewDate" type="date"></div>
-                  <div class="form-group"><label for="vehicleLastReviewKm">Ultima revisao (KM):</label><input id="vehicleLastReviewKm" type="number" min="0"></div>
-                  <div class="form-group"><label for="vehicleNextReviewDate">Próxima revisão:</label><input id="vehicleNextReviewDate" type="date"></div>
-                  <div class="form-group"><label for="vehicleNextReviewKm">Próxima revisão (KM):</label><input id="vehicleNextReviewKm" type="number" min="0"></div>
-                  <div class="form-group"><label for="vehicleLicenseExpiry">Licenciamento:</label><input id="vehicleLicenseExpiry" type="date"></div>
-                  <div class="form-group"><label for="vehicleInsuranceExpiry">Seguro:</label><input id="vehicleInsuranceExpiry" type="date"></div>
-                  <div class="form-group"><label for="vehicleExtinguisherExpiry">Extintor:</label><input id="vehicleExtinguisherExpiry" type="date"></div>
-                </div>
-                <div class="form-group"><label for="vehicleNotes">Observações:</label><textarea id="vehicleNotes" rows="2"></textarea></div>
-                <div style="text-align:right;"><button type="button" onclick="cancelFrotaVehicleEdit()" class="btn btn-secondary">Cancelar</button> <button type="submit" class="btn btn-primary">Salvar Veículo</button></div>
-              </form>
-              <div class="table-section"><table class="data-table"><thead><tr><th>Placa</th><th>Prefixo</th><th>Veículo</th><th>Tipo</th><th>Status</th><th>KM</th><th>Setor</th><th>Ação</th></tr></thead><tbody id="frotaVehiclesTableBody"></tbody></table></div>
-            </div>
-
-            <div class="form-section">
               <h3>Filtros dos Chamados</h3>
               <div class="form-row">
                 <div class="form-group"><label for="frotaStatusFilter">Status:</label><select id="frotaStatusFilter"><option value="ativos">Ativos</option><option value="aberto">Abertos</option><option value="triagem">Em triagem</option><option value="em_atendimento">Em atendimento</option><option value="aguardando_informacoes">Aguardando informações</option><option value="aguardando_aprovacao">Aguardando aprovação</option><option value="aguardando_orcamento">Aguardando orçamento</option><option value="aguardando_fornecedor">Aguardando fornecedor</option><option value="aguardando_peca">Aguardando peça/material</option><option value="aguardando_agendamento">Aguardando agendamento</option><option value="manutencao_externa">Manutenção externa</option><option value="veiculo_indisponivel">Veículo indisponível</option><option value="resolvido">Resolvidos</option><option value="validado_usuario">Validados pelo usuário</option><option value="fechados">Finalizados/cancelados</option><option value="todos">Todos</option></select></div>
@@ -1020,6 +977,64 @@
               <thead><tr><th>Número</th><th>Data</th><th>Veículo</th><th>Placa</th><th>Tipo</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Fornecedor</th><th>SLA</th><th>Retorno</th><th>Custos</th><th>Ação</th></tr></thead>
               <tbody id="frotaTicketsTableBody"></tbody>
             </table>
+          </div>
+        </div>
+
+        <div id="cadastroFrota" class="page-content" style="display: none;">
+          <div class="page-header">
+            <h2>Cadastro de Frota</h2>
+            <button id="btnCadastrarVeiculoFrota" type="button" onclick="showFrotaVehicleForm()" class="btn btn-primary" style="display:none;">+ Cadastrar Veículo</button>
+          </div>
+
+          <div class="form-section">
+            <form id="formFrotaVehicle" style="display:none;">
+              <input type="hidden" id="frotaVehicleEditId">
+              <div class="form-row">
+                <div class="form-group"><label for="vehiclePlate">Placa:</label><input id="vehiclePlate" maxlength="10" required></div>
+                <div class="form-group"><label for="vehiclePrefix">Prefixo:</label><input id="vehiclePrefix" maxlength="50"></div>
+                <div class="form-group"><label for="vehicleBrand">Marca:</label><input id="vehicleBrand" maxlength="100" required></div>
+                <div class="form-group"><label for="vehicleModel">Modelo:</label><input id="vehicleModel" maxlength="100" required></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label for="vehicleType">Tipo:</label><select id="vehicleType" required></select></div>
+                <div class="form-group"><label for="vehicleCategory">Categoria:</label><input id="vehicleCategory" maxlength="100"></div>
+                <div class="form-group"><label for="vehicleYear">Ano fabricação:</label><input id="vehicleYear" type="number" min="1950" max="2100"></div>
+                <div class="form-group"><label for="vehicleModelYear">Ano modelo:</label><input id="vehicleModelYear" type="number" min="1950" max="2100"></div>
+                <div class="form-group"><label for="vehicleFuel">Combustível:</label><input id="vehicleFuel" maxlength="50"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label for="vehicleRenavam">RENAVAM:</label><input id="vehicleRenavam" maxlength="50"></div>
+                <div class="form-group"><label for="vehicleChassis">Chassi:</label><input id="vehicleChassis" maxlength="100"></div>
+                <div class="form-group"><label for="vehicleColor">Cor:</label><input id="vehicleColor" maxlength="50"></div>
+                <div class="form-group"><label for="vehicleActive">Ativo:</label><select id="vehicleActive"><option value="1">Sim</option><option value="0">Não</option></select></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label for="vehicleDepartment">Setor responsável:</label><input id="vehicleDepartment" maxlength="100"></div>
+                <div class="form-group"><label for="vehicleDriver">Motorista responsável:</label><input id="vehicleDriver" maxlength="120"></div>
+                <div class="form-group"><label for="vehicleUnit">Unidade:</label><input id="vehicleUnit" maxlength="100"></div>
+                <div class="form-group"><label for="vehicleStatus">Status operacional:</label><select id="vehicleStatus"></select></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label for="vehicleMileage">Quilometragem:</label><input id="vehicleMileage" type="number" min="0"></div>
+                <div class="form-group"><label for="vehicleLastReviewDate">Última revisão:</label><input id="vehicleLastReviewDate" type="date"></div>
+                <div class="form-group"><label for="vehicleLastReviewKm">Última revisão (KM):</label><input id="vehicleLastReviewKm" type="number" min="0"></div>
+                <div class="form-group"><label for="vehicleNextReviewDate">Próxima revisão:</label><input id="vehicleNextReviewDate" type="date"></div>
+                <div class="form-group"><label for="vehicleNextReviewKm">Próxima revisão (KM):</label><input id="vehicleNextReviewKm" type="number" min="0"></div>
+                <div class="form-group"><label for="vehicleLicenseExpiry">Licenciamento:</label><input id="vehicleLicenseExpiry" type="date"></div>
+                <div class="form-group"><label for="vehicleInsuranceExpiry">Seguro:</label><input id="vehicleInsuranceExpiry" type="date"></div>
+                <div class="form-group"><label for="vehicleExtinguisherExpiry">Extintor:</label><input id="vehicleExtinguisherExpiry" type="date"></div>
+              </div>
+              <div class="form-group"><label for="vehicleNotes">Observações:</label><textarea id="vehicleNotes" rows="2"></textarea></div>
+              <div style="text-align:right;"><button type="button" onclick="cancelFrotaVehicleEdit()" class="btn btn-secondary">Cancelar</button> <button type="submit" class="btn btn-primary">Salvar Veículo</button></div>
+            </form>
+
+            <div class="table-section">
+              <h3>Veículos Cadastrados</h3>
+              <table class="data-table">
+                <thead><tr><th>Placa</th><th>Prefixo</th><th>Veículo</th><th>Tipo</th><th>Status</th><th>KM</th><th>Setor</th><th>Ação</th></tr></thead>
+                <tbody id="frotaVehiclesTableBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -1558,7 +1573,7 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260610-assignment-permissions"></script>
+  <script src="js/dashboard.js?v=20260610-fleet-pages"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {
