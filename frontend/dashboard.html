@@ -986,6 +986,29 @@
             <button id="btnCadastrarVeiculoFrota" type="button" onclick="showFrotaVehicleForm()" class="btn btn-primary" style="display:none;">+ Cadastrar Veículo</button>
           </div>
 
+          <div class="dashboard-grid" style="margin-bottom: 20px;">
+            <div class="dashboard-card">
+              <h3>Total</h3>
+              <div class="card-number" id="cadastroFrotaTotal">0</div>
+              <p class="card-label">Veículos ativos cadastrados</p>
+            </div>
+            <div class="dashboard-card">
+              <h3>Disponíveis</h3>
+              <div class="card-number" id="cadastroFrotaDisponiveis">0</div>
+              <p class="card-label">Aptos para operação</p>
+            </div>
+            <div class="dashboard-card">
+              <h3>Em uso</h3>
+              <div class="card-number" id="cadastroFrotaEmUso">0</div>
+              <p class="card-label">Em operação no momento</p>
+            </div>
+            <div class="dashboard-card">
+              <h3>Indisponíveis</h3>
+              <div class="card-number" id="cadastroFrotaIndisponiveis">0</div>
+              <p class="card-label">Parados ou em manutenção</p>
+            </div>
+          </div>
+
           <div class="form-section">
             <form id="formFrotaVehicle" style="display:none;">
               <input type="hidden" id="frotaVehicleEditId">
@@ -1582,7 +1605,7 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260610-fleet-search"></script>
+  <script src="js/dashboard.js?v=20260610-fleet-dashboard"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {

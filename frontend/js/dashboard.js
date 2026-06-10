@@ -2796,7 +2796,29 @@ async function loadFrotaVehicles() {
   const data = await readApiResponse(response);
   if (!response.ok) throw new Error(data?.error || 'Erro ao carregar veículos');
   frotaVehiclesCache = Array.isArray(data) ? data : [];
+  updateCadastroFrotaDashboard();
   renderFrotaVehicles();
+}
+
+function updateCadastroFrotaDashboard() {
+  const activeVehicles = frotaVehiclesCache.filter(vehicle => Number(vehicle.ativo) !== 0);
+  const unavailableStatuses = new Set([
+    'indisponivel',
+    'em_manutencao',
+    'aguardando_fornecedor',
+    'aguardando_peca'
+  ]);
+  const totals = {
+    cadastroFrotaTotal: activeVehicles.length,
+    cadastroFrotaDisponiveis: activeVehicles.filter(vehicle => vehicle.status_operacional === 'disponivel').length,
+    cadastroFrotaEmUso: activeVehicles.filter(vehicle => vehicle.status_operacional === 'em_uso').length,
+    cadastroFrotaIndisponiveis: activeVehicles.filter(vehicle => unavailableStatuses.has(vehicle.status_operacional)).length
+  };
+
+  Object.entries(totals).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  });
 }
 
 function getCadastroFrotaFilters() {
