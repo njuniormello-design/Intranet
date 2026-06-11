@@ -550,6 +550,56 @@ router.put('/vehicles/:id', authorizeRoles('admin'), async (req, res) => {
   }
 });
 
+router.delete('/vehicles/:id', authorizeRoles('admin'), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'ID invalido' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [vehicles] = await connection.query(
+      'SELECT id, placa, marca, modelo FROM frota_veiculos WHERE id = ? FOR UPDATE',
+      [id]
+    );
+    if (!vehicles.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Veiculo nao encontrado' });
+    }
+
+    const [[references]] = await connection.query(
+      `SELECT
+         (SELECT COUNT(*) FROM frota_chamados WHERE vehicle_id = ?) AS chamados,
+         (SELECT COUNT(*) FROM frota_indisponibilidades WHERE vehicle_id = ?) AS indisponibilidades`,
+      [id, id]
+    );
+    if (Number(references.chamados) > 0 || Number(references.indisponibilidades) > 0) {
+      await connection.rollback();
+      return res.status(409).json({
+        error: 'Este veiculo possui chamados ou historico vinculado. Para preservar a auditoria, edite o cadastro e marque Ativo como Nao.'
+      });
+    }
+
+    await connection.query('DELETE FROM frota_veiculos WHERE id = ?', [id]);
+    await connection.commit();
+    return res.json({ message: `Veiculo ${vehicles[0].placa} excluido com sucesso` });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error(error);
+    const referenced = ['ER_ROW_IS_REFERENCED', 'ER_ROW_IS_REFERENCED_2'].includes(error.code);
+    return res.status(referenced ? 409 : 500).json({
+      error: referenced
+        ? 'Este veiculo possui historico vinculado e nao pode ser excluido. Marque o cadastro como inativo.'
+        : 'Erro ao excluir veiculo'
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 router.post('/create', upload.array('attachments', 8), [
   body('title').trim().isLength({ min: 3, max: 150 }).withMessage('Titulo invalido'),
   body('description').trim().isLength({ min: 10, max: 3000 }).withMessage('Descricao invalida'),

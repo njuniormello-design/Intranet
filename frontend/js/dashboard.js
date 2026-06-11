@@ -2873,12 +2873,52 @@ function renderFrotaVehicles() {
       <td>${escapeHtml(vehicle.prefixo || '-')}</td>
       <td>${escapeHtml(`${vehicle.marca} ${vehicle.modelo}`)}</td>
       <td>${humanizeOptionLabel(vehicle.tipo_veiculo)}</td>
-      <td><span class="status-badge ${escapeHtml(vehicle.status_operacional)}">${humanizeOptionLabel(vehicle.status_operacional)}</span></td>
+      <td>
+        <span class="status-badge ${escapeHtml(vehicle.status_operacional)}">${humanizeOptionLabel(vehicle.status_operacional)}</span>
+        ${Number(vehicle.ativo) === 0 ? '<br><small style="color:#ef4444;">Cadastro inativo</small>' : ''}
+      </td>
       <td>${Number(vehicle.quilometragem_atual || 0).toLocaleString('pt-BR')} km</td>
       <td>${escapeHtml(vehicle.setor_responsavel || '-')}</td>
-      <td><button class="btn btn-primary" onclick="editFrotaVehicle(${vehicle.id})" style="padding:5px 10px;font-size:12px;">Editar</button></td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="editFrotaVehicle(${vehicle.id})" style="padding:5px 10px;font-size:12px;">Editar</button>
+          <button class="btn btn-danger" onclick="deleteFrotaVehicle(${vehicle.id})" style="padding:5px 10px;font-size:12px;">Excluir</button>
+        </div>
+      </td>
     </tr>
   `).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;">Nenhum veículo encontrado.</td></tr>';
+}
+
+async function deleteFrotaVehicle(id) {
+  if (!isAdmin()) {
+    alert('Somente administradores podem excluir veiculos.');
+    return;
+  }
+
+  const vehicle = frotaVehiclesCache.find(item => Number(item.id) === Number(id));
+  if (!vehicle) return;
+
+  const description = [vehicle.placa, vehicle.marca, vehicle.modelo].filter(Boolean).join(' - ');
+  const confirmed = confirm(
+    `Excluir definitivamente o veiculo ${description}?\n\n`
+    + 'A exclusao sera bloqueada caso existam chamados ou historico. Nesses casos, marque o cadastro como inativo.'
+  );
+  if (!confirmed) return;
+
+  try {
+    const response = await fetch(`${API_URL}/frota/vehicles/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await readApiResponse(response);
+    if (!response.ok) throw new Error(data?.error || 'Erro ao excluir veiculo');
+
+    cancelFrotaVehicleEdit();
+    await Promise.all([loadFrotaVehicles(), loadFrotaVehicleOptions(), loadFrotaSummary()]);
+    alert(data.message || 'Veiculo excluido com sucesso');
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 function editFrotaVehicle(id) {
