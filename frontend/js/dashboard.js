@@ -5,9 +5,39 @@ const API_URL =
       ? 'http://localhost:5000/api'
       : '/api';
 const API_ORIGIN = API_URL.replace(/\/api$/, '');
+const DEFAULT_AVATAR =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%23edf3ef'/%3E%3Ccircle cx='20' cy='15' r='7' fill='%236f9b82'/%3E%3Cpath d='M8 36c1-8 5-12 12-12s11 4 12 12' fill='%236f9b82'/%3E%3C/svg%3E";
 let token = localStorage.getItem('token');
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null') || {};
 let sessionRedirecting = false;
+
+function setMobileMenuState(open) {
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const shouldOpen = Boolean(open && isMobile);
+  const toggle = document.getElementById('mobileMenuToggle');
+
+  document.body.classList.toggle('mobile-menu-open', shouldOpen);
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(shouldOpen));
+    toggle.setAttribute('aria-label', shouldOpen ? 'Fechar menu principal' : 'Abrir menu principal');
+  }
+}
+
+function toggleMobileMenu() {
+  setMobileMenuState(!document.body.classList.contains('mobile-menu-open'));
+}
+
+function closeMobileMenu() {
+  setMobileMenuState(false);
+}
+
+window.addEventListener('resize', () => {
+  if (!window.matchMedia('(max-width: 768px)').matches) closeMobileMenu();
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeMobileMenu();
+});
 
 function getTokenPayload(jwtToken) {
   try {
@@ -779,7 +809,8 @@ async function loadCurrentUserAvatar() {
     if (funcionario?.foto_path) {
       avatarEl.onerror = () => {
         avatarEl.onerror = null;
-        avatarEl.src = 'https://via.placeholder.com/40';
+        avatarEl.src = DEFAULT_AVATAR;
+        avatarEl.alt = '';
       };
       avatarEl.src = `${API_ORIGIN}${funcionario.foto_path}`;
       avatarEl.alt = funcionario.nome || currentUser.name || 'Avatar';
@@ -955,6 +986,7 @@ function loadPage(page, evt) {
   if (navLink) {
     navLink.classList.add('active');
   }
+  closeMobileMenu();
 
   // Atualizar título
   const titles = {

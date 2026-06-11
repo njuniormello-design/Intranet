@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Intranet LI- Dashboard</title>
-  <link rel="stylesheet" href="css/style.css?v=20260609-frota-icon">
+  <link rel="stylesheet" href="css/style.css?v=20260611-mobile">
 </head>
 <body>
   <div class="container-main">
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="mainSidebar" aria-label="Menu principal">
       <div class="sidebar-header">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">
@@ -71,12 +71,18 @@
         <button onclick="logout()" class="btn btn-danger btn-block">Sair</button>
       </div>
     </aside>
+    <button type="button" class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileMenu()" aria-label="Fechar menu"></button>
 
     <!-- Main Content -->
     <main class="main-content">
       <!-- Header -->
       <header class="top-header">
         <div class="header-left">
+          <button type="button" class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()" aria-controls="mainSidebar" aria-expanded="false" aria-label="Abrir menu principal">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+          </button>
           <h1 id="pageTitle">Dashboard</h1>
         </div>
         <div class="header-right">
@@ -86,7 +92,7 @@
               <small id="userRole" style="color: #64748b;">Visualizador</small>
             </span>
             <button type="button" id="userMenuButton" class="avatar-button" onclick="toggleUserMenu()" aria-label="Abrir opções do usuário">
-              <img id="userAvatar" src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
+              <img id="userAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%23edf3ef'/%3E%3Ccircle cx='20' cy='15' r='7' fill='%236f9b82'/%3E%3Cpath d='M8 36c1-8 5-12 12-12s11 4 12 12' fill='%236f9b82'/%3E%3C/svg%3E" alt="" class="avatar">
             </button>
             <div id="userMenu" class="user-menu" style="display: none;">
               <button type="button" onclick="openChangePasswordModal()">Alterar senha</button>
@@ -1605,7 +1611,7 @@
     </div>
   </div>
 
-  <script src="js/dashboard.js?v=20260611-fleet-delete"></script>
+  <script src="js/dashboard.js?v=20260611-mobile"></script>
   <script>
     window.deleteComunicado = async function(comunicadoId) {
       if (typeof canManageCatalogs === 'function' && !canManageCatalogs()) {
